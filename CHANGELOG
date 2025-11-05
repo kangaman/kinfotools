@@ -1,0 +1,80 @@
+# 🧾 KINFO — CHANGELOG
+
+## 📌 Versi 1.3 (November 2025)
+**Status:** Stable Release  
+**Kode dasar:** Refactor penuh + modularisasi CLI  
+
+### ✨ Fitur Baru
+| Fitur | Deskripsi |
+|:------|:-----------|
+| 🧩 **Collect Data (Forensic Collector)** | Modul baru untuk mengumpulkan data sistem otomatis (hostname, user, network, cron, disk, uptime). Output JSON siap integrasi SIEM. |
+| 🧰 **Output JSON Standar** | Semua modul kini mendukung `--output-format json`. |
+| ⚙️ **Parallel Execution Optimized** | Scan subdomain, direnum, dan judi finder kini menggunakan multi-thread (xargs -P). |
+| 💾 **Struktur Output Baru** | Semua hasil disimpan ke `outputkinfo/` dengan penamaan dan timestamp otomatis. |
+| 🔧 **Enhanced Dependency Checker** | Pemeriksaan dependensi lebih akurat, menampilkan warna (OK / MISSING). |
+| 🧱 **Modular Menu Baru** | Menu utama kini terbagi dua mode: *Remote Scanner* dan *Local Incident Response*. |
+| 🧠 **System Log & Debug Mode** | Flag `--debug` menampilkan proses detail; bisa diarahkan ke file log. |
+| 🧰 **Improved Cleanup & Trap** | Otomatis menghapus file temporer dan menutup proses paralel jika interupsi. |
+
+---
+
+### 🪄 Peningkatan
+- Struktur script lebih rapi dan modular.
+- Integrasi error handling pada semua modul utama.
+- Tampilan log CLI berwarna untuk memudahkan pembacaan hasil.
+- Penambahan dokumentasi internal dan banner ASCII baru.
+
+---
+
+### 🧠 Catatan Teknis
+- Output `collectdata` kini bisa langsung diproses oleh **Wazuh**, **ELK Stack**, atau **Splunk**.  
+- Format JSON terstruktur sesuai standar log forensik lokal.  
+- Direkomendasikan dijalankan sebagai **root** untuk hasil penuh.  
+
+---
+
+## 🕐 Versi 1.1 (Oktober 2025)
+**Status:** Stable Release (kode sebelumnya disebut v2.8)  
+
+### 🧩 Fitur Utama
+| Fitur | Deskripsi |
+|:------|:-----------|
+| 🌐 **Remote Scanner Suite** | Subdomain, direnum, ftpbrute, judi finder, reverse IP, webshell finder, envscan, wpcheck, zoneh. |
+| 💻 **Local IR Toolkit** | FileScan, LocalPS, LocalNet, LocalUsers, LocalCron, FTP Client. |
+| ⚙️ **Mode CLI & Interaktif** | Dapat dijalankan interaktif maupun dengan argumen otomatis. |
+| 🧩 **Parallel Scan Basic** | Dukungan dasar untuk `xargs -P` pada modul tertentu. |
+| 💾 **Output Auto-Save** | Semua hasil disimpan otomatis ke `outputkinfo/`. |
+| 📊 **Format Text/JSON** | Dukungan dasar output format `text` dan `json`. |
+
+---
+
+### 🧠 Catatan Tambahan
+- Struktur awal pemisahan *Remote* dan *Local* diperkenalkan di versi ini.  
+- Implementasi logging masih minimal (belum berwarna).  
+- Belum ada fitur `collectdata` dan debug log detail.  
+
+---
+
+## 🔍 Ringkasan Perbandingan (1.1 → 1.3)
+
+| Aspek | v1.1 | v1.3 |
+|:-------|:------|:------|
+| **Collect Data Module** | ❌ Tidak ada | ✅ Tersedia (otomatis JSON + text) |
+| **Dependency Checker** | Dasar | Diperluas dengan warna & validasi penuh |
+| **Output Directory** | Manual | Otomatis dengan timestamp unik |
+| **Parallel Scan** | Parsial (xargs dasar) | Optimal dengan kontrol proses penuh |
+| **Mode Interaktif** | Ada | Ditingkatkan dengan kategori Remote/Lokal |
+| **Logging & Debug** | Minimal | Lengkap dengan level warna & file log |
+| **Error Handling** | Terbatas | Dilengkapi `trap` & `cleanup` otomatis |
+| **Integrasi SIEM** | Sebagian | Penuh (format JSON valid) |
+| **Kode & Struktur** | Monolitik | Modular dan mudah dikembangkan |
+
+---
+
+## 📜 Lisensi
+**MIT License** — © 2025 Saeful Bahri  
+Kontribusi referensi `collectdata`: [adpermana (GitHub)](https://github.com/adpermana)
+
+---
+
+> “KINFO 1.3 membawa lompatan dari sekadar scanner menuju platform audit dan forensik sistem otomatis.”
