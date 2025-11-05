@@ -1,20 +1,43 @@
 #!/bin/bash
 
 # KINFO - Incident Response & Pentest Toolkit
-# Version: 2.7 (Refactored, Split Menus, Local IR+, Output Dir)
-# Original: https://jejakintel.t.me/
-# Refactor: Gemini (dengan paralelisasi, mode non-interaktif, JSON, logging)
-# Updated: 5 November 2025
+# Versi: 2.8 (Final dengan Lisensi)
+#
+# Hak Cipta (c) 2025 Saeful
+# Kontak: https://jejakintel.t.me/
+#
+# Dilisensikan di bawah Lisensi MIT. Lihat file LICENSE terlampir atau di:
+# https://opensource.org/licenses/MIT
+#
+# --- Lisensi MIT ---
+#
+# Dengan ini diberikan izin, tanpa biaya, kepada siapa pun yang memperoleh salinan
+# perangkat lunak ini dan file dokumentasi terkait ("Perangkat Lunak"), untuk berurusan
+# dalam Perangkat Lunak tanpa batasan, termasuk namun tidak terbatas pada hak
+# untuk menggunakan, menyalin, memodifikasi, menggabungkan, menerbitkan, mendistribusikan, mensublisensikan,
+# dan/atau menjual salinan Perangkat Lunak, dan untuk mengizinkan orang yang menerima
+# Perangkat Lunak untuk melakukan hal yang sama, dengan tunduk pada ketentuan berikut:
+#
+# Pemberitahuan hak cipta di atas dan pemberitahuan izin ini harus disertakan dalam semua
+# salinan atau bagian substansial dari Perangkat Lunak.
+#
+# PERANGKAT LUNAK INI DISEDIAKAN "SEBAGAIMANA ADANYA", TANPA JAMINAN APA PUN, BAIK TERSURAT MAUPUN
+# TERSIRAT, TERMASUK NAMUN TIDAK TERBATAS PADA JAMINAN DAPAT DIPERDAGANGKAN,
+# KESESUAIAN UNTUK TUJUAN TERTENTU DAN TANPA PELANGGARAN. DALAM KEADAAN APA PUN
+# PENULIS ATAU PEMEGANG HAK CIPTA TIDAK BERTANGGUNG JAWAB ATAS KLAIM, KERUSAKAN ATAU
+# KEWAJIBAN LAINNYA, BAIK DALAM TINDAKAN KONTRAK, KESALAHAN ATAU LAINNYA, YANG TIMBUL DARI,
+# KELUAR DARI ATAU SEHUBUNGAN DENGAN PERANGKAT LUNAK ATAU PENGGUNAAN ATAU URUSAN LAIN DALAM
+# PERANGKAT LUNAK.
+# --- Akhir Lisensi MIT ---
+
 
 # --- KONFIGURASI GLOBAL ---
-VERSION="2.7"
+VERSION="2.8"
 KINFO_USER_AGENT="Mozilla/5.0 KINFO/$VERSION"
 DORK_UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"
 
 # --- LOKASI SCRIPT & FOLDER OUTPUT ---
-# Menentukan direktori tempat script ini berada
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-# *** BARU v2.7: Menentukan folder output kustom ***
 OUTPUT_DIR="$SCRIPT_DIR/outputkinfo"
 
 # --- WARNA ---
@@ -91,9 +114,6 @@ check_dependencies() {
         log_error "Harap install dependensi wajib dan coba lagi."
         exit 1
     fi
-    log_debug "Semua dependensi wajib ditemukan."
-    
-    # *** BARU v2.7: Buat folder output jika belum ada ***
     if ! mkdir -p "$OUTPUT_DIR"; then
         log_error "Gagal membuat folder output di: $OUTPUT_DIR"
         log_error "Periksa izin (permissions) folder."
@@ -118,7 +138,7 @@ EOF
     echo -e "${NC}"
     echo "========================================="
     echo "  KINFO - Incident Response Toolkit      "
-    echo "  Version: $VERSION | Update: 5 November 2025 "
+    echo "  Version: $VERSION | By: Saeful"
     echo "  Contact: https://jejakintel.t.me/      "
     echo "  Output disimpan di: $OUTPUT_DIR"
     echo "========================================="
@@ -673,7 +693,7 @@ EOF
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
-# --- *** BARU v2.7 *** [L4] CEK USER & LOGIN LOKAL ---
+# --- [L4] CEK USER & LOGIN LOKAL ---
 run_module_local_users() {
     log_info "Memulai Pengecekan User & Login (Lokal)..."
     local TI; TI=$(add_temp_file)
@@ -689,6 +709,9 @@ run_module_local_users() {
 
     echo "" >> "$TI"; echo "--- Modifikasi File User (Baru/Diubah) ---" >> "$TI"
     (ls -l /etc/passwd /etc/shadow /etc/group 2>/dev/null || echo "Tidak dapat membaca file user.") >> "$TI"
+    
+    echo "" >> "$TI"; echo "--- /etc/passwd (User uid >= 1000 atau uid = 0) ---" >> "$TI"
+    (awk -F: '($3 >= 1000 || $3 == 0) {print}' /etc/passwd 2>/dev/null) >> "$TI"
 
     log_info "[+] Pengecekan user dan login selesai."
     local OD
@@ -707,7 +730,7 @@ EOF
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
-# --- *** BARU v2.7 *** [L5] CEK CRON MENDALAM LOKAL ---
+# --- [L5] CEK CRON MENDALAM LOKAL ---
 run_module_local_cron() {
     log_info "Memulai Pengecekan Cron Mendalam (Lokal)..."
     local TI; TI=$(add_temp_file)
@@ -759,7 +782,7 @@ EOF
     log_info "Sesi FTP ditutup."
 }
 
-# --- *** DIPERBARUI v2.7 *** MODE INTERAKTIF (MENU TERPISAH) ---
+# --- MODE INTERAKTIF (MENU TERPISAH) ---
 menu_remote() {
     while true; do
         show_banner
@@ -780,7 +803,7 @@ menu_remote() {
         echo ""
         read -p "Pilih Opsi Remote (1-11): " pilihan
 
-        TARGET=""; OUTPUT_FILE="$OUTPUT_DIR/kinfo_interactive_$(date +%s).txt"
+        TARGET=""; OUTPUT_FILE="$OUTPUT_DIR/kinfo_R${pilihan}_$(date +%s).txt"
         log_info "Output (jika ada) akan disimpan ke: $OUTPUT_FILE"
         
         case $pilihan in
@@ -818,7 +841,7 @@ menu_local() {
         echo ""
         read -p "Pilih Opsi Lokal (1-7): " pilihan
 
-        TARGET=""; OUTPUT_FILE="$OUTPUT_DIR/kinfo_interactive_$(date +%s).txt"
+        TARGET=""; OUTPUT_FILE="$OUTPUT_DIR/kinfo_L${pilihan}_$(date +%s).txt"
         log_info "Output (jika ada) akan disimpan ke: $OUTPUT_FILE"
         
         case $pilihan in
@@ -883,39 +906,31 @@ main() {
         esac
     done
 
-    # Cek dependensi & Buat folder output
     check_dependencies
-    
     log_debug "Mode Debug Aktif."
     
     if [[ $NON_INTERACTIVE -eq 1 ]]; then
         log_info "Menjalankan KINFO v$VERSION (Mode Non-Interaktif)"
         if [[ -z "$MODULE" ]]; then log_error "Mode non-interaktif membutuhkan --module"; show_usage; exit 1; fi
         
-        # Cek apakah modul membutuhkan target
         case "$MODULE" in
             localps|localnet|localusers|localcron)
-                # Modul lokal ini tidak membutuhkan --target
                 ;;
             ftpclient)
                 log_error "Modul 'ftpclient' (L6) hanya tersedia dalam mode Interaktif."; exit 1
                 ;;
             *)
-                # Semua modul lain membutuhkan --target
                 if [[ -z "$TARGET" ]]; then log_error "Modul '$MODULE' membutuhkan --target <target>"; show_usage; exit 1; fi
                 ;;
         esac
 
-        # *** DIPERBARUI v2.7: Atur path output ***
         if [[ -z "$OUTPUT_FILE" ]]; then
             if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-                OUTPUT_FILE="/dev/stdout" # Kirim ke stdout jika JSON
+                OUTPUT_FILE="/dev/stdout"
             else
-                # Buat file di dalam folder output
                 OUTPUT_FILE="$OUTPUT_DIR/kinfo_${MODULE}_$(date +%s).txt"
             fi
         else
-            # Jika user set nama file, letakkan di dalam folder output
             OUTPUT_FILE="$OUTPUT_DIR/$OUTPUT_FILE"
         fi
         
@@ -944,7 +959,6 @@ main() {
         log_info "Eksekusi selesai. Output disimpan di: $OUTPUT_FILE"
 
     else
-        # --- MODE INTERAKTIF ---
         main_interactive
     fi
 }
