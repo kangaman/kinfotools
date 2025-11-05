@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # KINFO - Incident Response & Pentest Toolkit
-# Version: 2.5 (Refactored, Expanded Module 9)
+# Version: 2.6 (Refactored, Local IR Modules)
 # Original: https://jejakintel.t.me/
 # Refactor: Gemini (dengan paralelisasi, mode non-interaktif, JSON, logging)
 # Updated: 5 November 2025
 
 # --- KONFIGURASI GLOBAL ---
-VERSION="2.5"
+VERSION="2.6"
 KINFO_USER_AGENT="Mozilla/5.0 KINFO/$VERSION"
 DORK_UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
@@ -77,7 +77,7 @@ check_dependencies() {
             missing_deps=1
         fi
     done
-    for cmd in jq nslookup nc ftp whois; do
+    for cmd in jq nslookup nc ftp whois ps netstat ss; do
         if ! command -v "$cmd" &>/dev/null; then
             log_warn "Dependensi opsional tidak ditemukan: $cmd. Beberapa fitur mungkin tidak berfungsi."
         fi
@@ -119,21 +119,26 @@ show_usage() {
     echo "  $0"
     echo ""
     echo "MODE NON-INTERAKTIF (CLI):"
-    echo "  Dibutuhkan: --module <nama_modul> --target <target>"
+    echo "  Dibutuhkan: --module <nama_modul>"
     echo ""
-    echo "MODULES:"
-    echo "  subdomain       : [1] Enhanced Subdomain Finder"
-    echo "  direnum         : [2] Directory/File Enumeration"
-    echo "  ftpbrute        : [3] FTP Bruteforce"
-    echo "  judi            : [4] Judi Online Finder"
-    echo "  reverseip       : [5] Reverse IP Lookup"
-    echo "  extract         : [6] Extract Domain & Auto Add HTTPS"
-    echo "  webscan         : [7] Webshell Finder [DirScan]"
-    echo "  filescan        : [8] Webshell Finder [File Enumeration] (Target adalah path lokal)"
-    echo "  envscan         : [9] ENV & Debug Method Scanner"
-    echo "  wpcheck         : [10] WordPress Registration Finder"
-    echo "  zoneh           : [11] Grab Domain from Zone-H (Target adalah nama notifier)"
-    echo "  ftpclient       : [12] Mini Shell FTP Client (Hanya mode Interaktif)"
+    echo "MODULES (REMOTE):"
+    echo "  subdomain       : [1] Enhanced Subdomain Finder (membutuhkan --target)"
+    echo "  direnum         : [2] Directory/File Enumeration (membutuhkan --target)"
+    echo "  ftpbrute        : [3] FTP Bruteforce (membutuhkan --target)"
+    echo "  judi            : [4] Judi Online Finder (membutuhkan --target)"
+    echo "  reverseip       : [5] Reverse IP Lookup (membutuhkan --target)"
+    echo "  extract         : [6] Extract Domain & Auto Add HTTPS (membutuhkan --target)"
+    echo "  webscan         : [7] Webshell Finder [DirScan] (membutuhkan --target)"
+    echo "  envscan         : [9] ENV & Debug Method Scanner (membutuhkan --target)"
+    echo "  wpcheck         : [10] WordPress Registration Finder (membutuhkan --target)"
+    echo "  zoneh           : [11] Grab Domain from Zone-H (membutuhkan --target)"
+    echo ""
+    echo "MODULES (LOKAL):"
+    echo "  filescan        : [8] Webshell Finder [File Enumeration] (membutuhkan --target <path>)"
+    echo "  ftpclient       : [12] Mini Shell FTP Client (Hanya Interaktif)"
+    echo "  localps         : [13] Pengecekan Proses Mencurigakan (Lokal)"
+    echo "  localnet        : [14] Pengecekan Koneksi Jaringan (Lokal)"
+    echo "  localusers      : [15] Pengecekan User & Cron (Lokal)"
     echo ""
     echo "OPTIONS:"
     echo "  -t, --target <str>        : Target (domain, URL, IP, atau path lokal untuk 'filescan')"
@@ -151,315 +156,212 @@ show_usage() {
 }
 
 # --- [MODUL 1] ENHANCED SUBDOMAIN FINDER ---
-
-# Helper untuk nslookup
-resolve_subdomain() {
-    local subdomain="$1"
-    if nslookup "$subdomain" >/dev/null 2>&1; then
-        echo "$subdomain"
-    fi
-}
+resolve_subdomain() { local S="$1"; if nslookup "$S" >/dev/null 2>&1; then echo "$S"; fi; }
 export -f resolve_subdomain
-
-# Helper untuk cek HTTP/HTTPS
 check_subdomain_http() {
-    local subdomain="$1"
-    local result_file="$2"
-    local user_agent="$3"
-    
-    for proto in "https" "http"; do
-        local url="$proto://$subdomain"
-        local status_code
-        status_code=$(curl -sL -I -o /dev/null -w "%{http_code}" --max-time 5 "$url" -A "$user_agent")
-        
-        # Cek 2xx, 3xx, 401, 403
-        if [[ "$status_code" =~ ^(2|3|401|403) ]]; then
-            jq -n --arg url "$url" --arg status "$status_code" \
-                '{"url": $url, "status": $status_code}' >> "$result_file"
-            break
+    local S="$1"; local RF="$2"; local UA="$3"
+    for P in "https" "http"; do
+        local U="$P://$S"; local SC; SC=$(curl -sL -I -o /dev/null -w "%{http_code}" --max-time 5 "$U" -A "$UA")
+        if [[ "$SC" =~ ^(2|3|401|403) ]]; then
+            jq -n --arg url "$U" --arg status "$SC" '{"url": $url, "status": $status_code}' >> "$RF"; break
         fi
     done
 }
 export -f check_subdomain_http
-
 run_module_subdomain() {
     log_info "Memulai Enhanced Subdomain Finder..."
-    if [[ -z "$TARGET" ]]; then log_error "Target domain diperlukan. Gunakan --target <domain>"; return 1; fi
-
-    local sanitized_target
-    sanitized_target=$(echo "$TARGET" | sed -E 's~^https?://~~' | sed -E 's/^www\.//' | cut -d'/' -f1)
-    log_debug "Input asli '$TARGET' disanitasi menjadi '$sanitized_target'"
-    if [[ -z "$sanitized_target" ]]; then log_error "Input target tidak valid setelah sanitasi."; return 1; fi
-
+    if [[ -z "$TARGET" ]]; then log_error "Target domain diperlukan."; return 1; fi
+    local ST; ST=$(echo "$TARGET"|sed -E 's~^https?://~~'|sed -E 's/^www\.//'|cut -d'/' -f1)
+    log_debug "Input asli '$TARGET' disanitasi menjadi '$ST'"
+    if [[ -z "$ST" ]]; then log_error "Input target tidak valid."; return 1; fi
     if ! command -v jq &>/dev/null; then log_warn "Perintah 'jq' tidak ditemukan."; fi
     if ! command -v nslookup &>/dev/null; then log_warn "Perintah 'nslookup' tidak ditemukan."; fi
-
-    local temp_file_all; temp_file_all=$(add_temp_file)
-    log_debug "Menggunakan file temp: $temp_file_all"
-
-    # --- Langkah 1: Kumpulkan dari API (Gunakan $sanitized_target) ---
+    local TFA; TFA=$(add_temp_file); log_debug "Temp file: $TFA"
     log_info "[*] Mengecek crt.sh..."
-    curl -s "https://crt.sh/?q=%.${sanitized_target}&output=json" -A "$KINFO_USER_AGENT" | jq -r '.[].name_value' 2>/dev/null | grep -Po '(\S+\.)+\S+' >> "$temp_file_all"
+    curl -s "https://crt.sh/?q=%.${ST}&output=json" -A "$KINFO_USER_AGENT"|jq -r '.[].name_value' 2>/dev/null|grep -Po '(\S+\.)+\S+' >> "$TFA"
     log_info "[*] Mengecek bufferover.run..."
-    curl -s "https://dns.bufferover.run/dns?q=.${sanitized_target}" -A "$KINFO_USER_AGENT" 2>/dev/null | jq -r '.FDNS_A[],.RDNS[]' 2>/dev/null | cut -d',' -f2 >> "$temp_file_all"
+    curl -s "https://dns.bufferover.run/dns?q=.${ST}" -A "$KINFO_USER_AGENT" 2>/dev/null|jq -r '.FDNS_A[],.RDNS[]' 2>/dev/null|cut -d',' -f2 >> "$TFA"
     log_info "[*] Mengecek alienvault.com..."
-    curl -s "https://otx.alienvault.com/api/v1/indicators/domain/${sanitized_target}/passive_dns" -A "$KINFO_USER_AGENT" 2>/dev/null | jq -r '.passive_dns[].hostname' 2>/dev/null | grep "\.${sanitized_target}$" >> "$temp_file_all"
+    curl -s "https://otx.alienvault.com/api/v1/indicators/domain/${ST}/passive_dns" -A "$KINFO_USER_AGENT" 2>/dev/null|jq -r '.passive_dns[].hostname' 2>/dev/null|grep "\.${ST}$" >> "$TFA"
     log_info "[*] Mengecek threatcrowd.org..."
-    curl -s "https://www.threatcrowd.org/searchApi/v2/domain/report/?domain=${sanitized_target}" -A "$KINFO_USER_AGENT" 2>/dev/null | jq -r '.subdomains[]' 2>/dev/null >> "$temp_file_all"
-
-    sort -u "$temp_file_all" -o "$temp_file_all"
-    
-    cp "$temp_file_all" "/tmp/kinfo_last_subdomains_${sanitized_target}.txt"
-    log_debug "Menyimpan daftar subdomain mentah ke /tmp/kinfo_last_subdomains_${sanitized_target}.txt"
-    
-    local total; total=$(wc -l < "$temp_file_all")
-    log_info "[+] Ditemukan total $total subdomain unik (dari API)."
-    
-    # --- Langkah 2: DNS Resolution (Cek DNS Live) ---
+    curl -s "https://www.threatcrowd.org/searchApi/v2/domain/report/?domain=${ST}" -A "$KINFO_USER_AGENT" 2>/dev/null|jq -r '.subdomains[]' 2>/dev/null >> "$TFA"
+    sort -u "$TFA" -o "$TFA"; cp "$TFA" "/tmp/kinfo_last_subdomains_${ST}.txt"
+    local total; total=$(wc -l < "$TFA"); log_info "[+] Ditemukan total $total subdomain unik (dari API)."
     log_info "[*] Melakukan DNS resolution paralel (Proses: $PARALLEL_JOBS)..."
-    local temp_file_dns_live; temp_file_dns_live=$(add_temp_file)
-    cat "$temp_file_all" | xargs -P "$PARALLEL_JOBS" -I {} \
-        bash -c "resolve_subdomain {}" >> "$temp_file_dns_live"
-    local dns_live_count; dns_live_count=$(wc -l < "$temp_file_dns_live")
-    log_info "[+] Ditemukan $dns_live_count subdomain yang DNS LIVE."
-
-    # --- Langkah 3: HTTP Check (Cek HTTP Live) ---
+    local TFD; TFD=$(add_temp_file)
+    cat "$TFA" | xargs -P "$PARALLEL_JOBS" -I {} bash -c "resolve_subdomain {}" >> "$TFD"
+    local dlc; dlc=$(wc -l < "$TFD"); log_info "[+] Ditemukan $dlc subdomain yang DNS LIVE."
     log_info "[*] Melakukan HTTP check paralel pada subdomain DNS Live (Proses: $PARALLEL_JOBS)..."
-    local temp_file_http_live; temp_file_http_live=$(add_temp_file)
-    export KINFO_USER_AGENT
-    export temp_file_http_live
-    
-    cat "$temp_file_dns_live" | xargs -P "$PARALLEL_JOBS" -I {} \
-        bash -c "check_subdomain_http \"{}\" \"$temp_file_http_live\" \"$KINFO_USER_AGENT\""
-    
-    local http_live_count; http_live_count=$(wc -l < "$temp_file_http_live")
-    log_info "[+] Ditemukan $http_live_count subdomain yang HTTP LIVE (merespon di port 80/443)."
-
-    # --- Handle Output ---
+    local TFH; TFH=$(add_temp_file); export KINFO_USER_AGENT; export TFH
+    cat "$TFD" | xargs -P "$PARALLEL_JOBS" -I {} bash -c "check_subdomain_http \"{}\" \"$TFH\" \"$KINFO_USER_AGENT\""
+    local hlc; hlc=$(wc -l < "$TFH"); log_info "[+] Ditemukan $hlc subdomain yang HTTP LIVE."
     if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        local json_output
-        json_output=$(jq -n \
-            --arg target "$sanitized_target" \
-            --arg total_api "$total" \
-            --arg total_dns_live "$dns_live_count" \
-            --arg total_http_live "$http_live_count" \
-            --argjson all_api "$(jq -Rsc 'split("\n") | map(select(length > 0))' "$temp_file_all")" \
-            --argjson dns_live "$(jq -Rsc 'split("\n") | map(select(length > 0))' "$temp_file_dns_live")" \
-            --argjson http_live "$(jq -s '.' "$temp_file_http_live")" \
-            '{target: $target, total_found_api: $total_api, total_dns_live: $total_dns_live, total_http_live: $total_http_live, all_subdomains_api: $all_api, dns_live_subdomains: $dns_live, http_live_subdomains: $http_live}')
-        echo "$json_output"
+        jq -n --arg target "$ST" --arg total_api "$total" --arg total_dns_live "$dlc" --arg total_http_live "$hlc" \
+            --argjson all_api "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$TFA")" \
+            --argjson dns_live "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$TFD")" \
+            --argjson http_live "$(jq -s '.' "$TFH")" \
+            '{target: $target, total_found_api: $total_api, total_dns_live: $total_dns_live, total_http_live: $total_http_live, all_subdomains_api: $all_api, dns_live_subdomains: $dns_live, http_live_subdomains: $http_live}'
     else
-        local text_output
-        text_output=$(cat <<EOF
+        cat <<EOF
 KINFO Enhanced Subdomain Finder Results
-Target: $sanitized_target
+Target: $ST
 Scan Time: $(date)
-Total Found (API): $total | DNS Live: $dns_live_count | HTTP Live: $http_live_count
+Total Found (API): $total | DNS Live: $dlc | HTTP Live: $hlc
 ====================================
 ALL SUBDOMAINS (Total: $total):
-$(cat "$temp_file_all")
+$(cat "$TFA")
 
-DNS LIVE SUBDOMAINS (Total: $dns_live_count):
-$(cat "$temp_file_dns_live")
+DNS LIVE SUBDOMAINS (Total: $dlc):
+$(cat "$TFD")
 
-HTTP LIVE SUBDOMAINS (Total: $http_live_count):
-$(cat "$temp_file_http_live" | jq -r '"[\(.status)] \(.url)"')
+HTTP LIVE SUBDOMAINS (Total: $hlc):
+$(cat "$TFH" | jq -r '"[\(.status)] \(.url)"')
 EOF
-)
-        echo "$text_output"
     fi | tee "$OUTPUT_FILE" > /dev/null
-    
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
     log_info "Pencarian subdomain selesai."
 }
 
-
 # --- [MODUL 2] DIRECTORY/FILE ENUMERATION ---
 check_url_path() {
-    local base_url="$1"
-    local path="$2"
-    local rate_limit="$3"
-    local user_agent="$4"
-    local result_file="$5"
-    local full_url="${base_url}/${path}"
-    sleep "$rate_limit"
-    local response; response=$(curl -sIL "$full_url" --connect-timeout 3 --max-time 5 -H "User-Agent: $user_agent" 2>/dev/null)
-    local status_line; status_line=$(echo "$response" | head -n 1)
-    local status_code; status_code=$(echo "$status_line" | grep -oE '[0-9]{3}' | head -1)
-    if [[ "$status_code" =~ ^(200|301|302|401|403)$ ]]; then
-        local size="N/A"
-        if [[ "$status_code" == "200" ]]; then
-            size=$(curl -s "$full_url" --connect-timeout 3 --max-time 5 -H "User-Agent: $user_agent" 2>/dev/null | wc -c)
-        fi
-        jq -n --arg url "$full_url" --arg status "$status_code" --arg size "$size" \
-            '{"url": $url, "status": $status, "size": $size}' >> "$result_file"
+    local BU="$1"; local P="$2"; local RL="$3"; local UA="$4"; local RF="$5"
+    local FU="${BU}/${P}"; sleep "$RL"
+    local R; R=$(curl -sIL "$FU" --connect-timeout 3 --max-time 5 -H "User-Agent: $UA" 2>/dev/null)
+    local SL; SL=$(echo "$R" | head -n 1); local SC; SC=$(echo "$SL" | grep -oE '[0-9]{3}' | head -1)
+    if [[ "$SC" =~ ^(200|301|302|401|403)$ ]]; then
+        local SZ="N/A"; if [[ "$SC" == "200" ]]; then SZ=$(curl -s "$FU" --connect-timeout 3 --max-time 5 -H "User-Agent: $UA" 2>/dev/null | wc -c); fi
+        jq -n --arg url "$FU" --arg status "$SC" --arg size "$SZ" '{"url": $url, "status": $status, "size": $size}' >> "$RF"
     fi
 }
 export -f check_url_path
 run_module_direnum() {
     log_info "Memulai Directory/File Enumeration..."
-    if [[ -z "$TARGET" ]]; then log_error "Target URL diperlukan. Gunakan --target <url>"; return 1; fi
+    if [[ -z "$TARGET" ]]; then log_error "Target URL diperlukan."; return 1; fi
     if [[ ! "$TARGET" =~ ^https?:// ]]; then TARGET="https://$TARGET"; fi
     TARGET=$(echo "$TARGET" | sed 's:/*$::')
     if [[ ! -f "$WORDLIST" ]]; then log_error "Wordlist tidak ditemukan di: $WORDLIST"; return 1; fi
-    local total_lines; total_lines=$(grep -vE "^\s*#|^\s*$" "$WORDLIST" | wc -l)
-    log_info "[*] Memulai enumerasi pada $TARGET menggunakan $WORDLIST ($total_lines entri)"
-    log_info "[*] Paralel: $PARALLEL_JOBS | Rate Limit: $RATE_LIMIT detik"
-    local temp_json_lines; temp_json_lines=$(add_temp_file)
-    export TARGET; export RATE_LIMIT; export KINFO_USER_AGENT; export temp_json_lines
-    grep -vE "^\s*#|^\s*$" "$WORDLIST" | \
-    xargs -P "$PARALLEL_JOBS" -I {} \
-        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$temp_json_lines\""
-    local found_count; found_count=$(wc -l < "$temp_json_lines")
-    log_info "[+] Enumerasi selesai. Ditemukan $found_count item menarik."
-    if [[ "$found_count" -eq 0 ]]; then log_warn "Tidak ada item yang ditemukan."; return 0; fi
-    local output_data
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        output_data=$(jq -s '.' "$temp_json_lines")
-    else
-        output_data=$(cat <<EOF
+    local total; total=$(grep -vE "^\s*#|^\s*$" "$WORDLIST" | wc -l)
+    log_info "[*] Memulai enumerasi pada $TARGET ($WORDLIST: $total entri, Paralel: $PARALLEL_JOBS, Rate: $RATE_LIMIT""s)"
+    local TJL; TJL=$(add_temp_file); export TARGET; export RATE_LIMIT; export KINFO_USER_AGENT; export TJL
+    grep -vE "^\s*#|^\s*$" "$WORDLIST" | xargs -P "$PARALLEL_JOBS" -I {} \
+        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$TJL\""
+    local fc; fc=$(wc -l < "$TJL"); log_info "[+] Enumerasi selesai. Ditemukan $fc item."
+    if [[ "$fc" -eq 0 ]]; then log_warn "Tidak ada item yang ditemukan."; return 0; fi
+    local OD
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then OD=$(jq -s '.' "$TJL"); else
+        OD=$(cat <<EOF
 Directory/File Enumeration Results
 Target: $TARGET
 Wordlist: $WORDLIST
 Scan Time: $(date)
 ==================================
-$(cat "$temp_json_lines" | jq -r '"[\(.status)] \(.url) (Size: \(.size))"' | sort)
+$(cat "$TJL" | jq -r '"[\(.status)] \(.url) (Size: \(.size))"' | sort)
 EOF
 )
     fi
-    echo "$output_data" | tee "$OUTPUT_FILE" > /dev/null
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
 # --- [MODUL 3] FTP BRUTEFORCE ---
 check_ftp_cred() {
-    local ftp_host="$1"
-    local ftp_port="$2"
-    local username="$3"
-    local password="$4"
-    local result_file="$5"
-    local login_result; login_result=$(echo -e "user $username $password\nquit" | ftp -n "$ftp_host" "$ftp_port" 2>&1)
-    if echo "$login_result" | grep -qi "login successful\|230\|welcome"; then
-        jq -n --arg host "$ftp_host" --arg port "$ftp_port" --arg user "$username" --arg pass "$password" \
-            '{"host": $host, "port": $port, "username": $user, "password": $pass}' >> "$result_file"
+    local H="$1"; local P="$2"; local U="$3"; local PW="$4"; local RF="$5"
+    local LR; LR=$(echo -e "user $U $PW\nquit" | ftp -n "$H" "$P" 2>&1)
+    if echo "$LR" | grep -qi "login successful\|230\|welcome"; then
+        jq -n --arg host "$H" --arg port "$P" --arg user "$U" --arg pass "$PW" \
+            '{"host": $host, "port": $port, "username": $user, "password": $pass}' >> "$RF"
     fi
 }
 export -f check_ftp_cred
 run_module_ftpbrute() {
     log_info "Memulai FTP Bruteforce..."
-    local ftp_host; ftp_host=$(echo "$TARGET" | cut -d':' -f1)
-    local ftp_port; ftp_port=$(echo "$TARGET" | cut -d':' -f2)
-    if [[ "$ftp_host" == "$ftp_port" ]]; then ftp_port=21; fi
-    if [[ -z "$ftp_host" ]]; then log_error "Target host diperlukan."; return 1; fi
+    local H; H=$(echo "$TARGET" | cut -d':' -f1); local P; P=$(echo "$TARGET" | cut -d':' -f2)
+    if [[ "$H" == "$P" ]]; then P=21; fi
+    if [[ -z "$H" ]]; then log_error "Target host diperlukan."; return 1; fi
     if ! command -v ftp &>/dev/null; then log_error "Perintah 'ftp' tidak ditemukan."; return 1; fi
     if [[ ! -f "$FTP_LIST" ]]; then log_error "Wordlist FTP tidak ditemukan di: $FTP_LIST"; return 1; fi
-    if ! nc -z "$ftp_host" "$ftp_port" 2>/dev/null; then log_error "Tidak dapat terhubung ke $ftp_host:$ftp_port"; return 1; fi
-    log_info "[*] Terhubung ke $ftp_host:$ftp_port. Memulai brute force (Paralel: $PARALLEL_JOBS)..."
-    local temp_json_lines; temp_json_lines=$(add_temp_file)
-    export ftp_host; export ftp_port; export temp_json_lines
-    grep -vE "^\s*#|^\s*$" "$FTP_LIST" | grep ':' | \
-    xargs -P "$PARALLEL_JOBS" -I {} \
-        bash -c "check_ftp_cred \"$ftp_host\" \"$ftp_port\" \"$(echo {} | cut -d':' -f1)\" \"$(echo {} | cut -d':' -f2-)\" \"$temp_json_lines\""
-    local found_count; found_count=$(wc -l < "$temp_json_lines")
-    log_info "[+] Bruteforce selesai."
-    if [[ "$found_count" -eq 0 ]]; then log_warn "Tidak ada kredensial valid yang ditemukan."; return 0; fi
-    log_result "[SUCCESS] Ditemukan $found_count kredensial valid!"
-    local output_data
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        output_data=$(jq -s '.' "$temp_json_lines")
-    else
-        output_data=$(cat "$temp_json_lines" | jq -r '"[+] HOST: \(.host):\(.port) - USER: \(.username) - PASS: \(.password)"')
+    if ! nc -z "$H" "$P" 2>/dev/null; then log_error "Tidak dapat terhubung ke $H:$P"; return 1; fi
+    log_info "[*] Terhubung ke $H:$P. Memulai brute force (Paralel: $PARALLEL_JOBS)..."
+    local TJL; TJL=$(add_temp_file); export H; export P; export TJL
+    grep -vE "^\s*#|^\s*$" "$FTP_LIST" | grep ':' | xargs -P "$PARALLEL_JOBS" -I {} \
+        bash -c "check_ftp_cred \"$H\" \"$P\" \"$(echo {} | cut -d':' -f1)\" \"$(echo {} | cut -d':' -f2-)\" \"$TJL\""
+    local fc; fc=$(wc -l < "$TJL"); log_info "[+] Bruteforce selesai."
+    if [[ "$fc" -eq 0 ]]; then log_warn "Tidak ada kredensial valid yang ditemukan."; return 0; fi
+    log_result "[SUCCESS] Ditemukan $fc kredensial valid!"
+    local OD
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then OD=$(jq -s '.' "$TJL"); else
+        OD=$(cat "$TJL" | jq -r '"[+] HOST: \(.host):\(.port) - USER: \(.username) - PASS: \(.password)"')
     fi
-    echo "$output_data" | tee "$OUTPUT_FILE" > /dev/null
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
 # --- [MODUL 4] JUDI ONLINE FINDER ---
 check_judi_homepage() {
-    local url="$1"
-    local keyword_list_file="$2"
-    local result_file="$3"
-    local content; content=$(curl -sL "$url" --connect-timeout 5 --max-time 10 -H "User-Agent: $KINFO_USER_AGENT" 2>/dev/null)
-    if [[ -z "$content" ]]; then return; fi
-    while IFS= read -r keyword; do
-        if [[ -z "$keyword" || "$keyword" == \#* ]]; then continue; fi
-        if echo "$content" | grep -iq "$keyword"; then
-            log_debug "Direct scan match: $keyword di $url"
-            jq -n --arg method "direct_scan" --arg url "$url" --arg keyword "$keyword" \
-                '{"method": $method, "url": $url, "keyword": $keyword}' >> "$result_file"
-            break
+    local U="$1"; local KLF="$2"; local RF="$3"
+    local C; C=$(curl -sL "$U" --connect-timeout 5 --max-time 10 -H "User-Agent: $KINFO_USER_AGENT" 2>/dev/null)
+    if [[ -z "$C" ]]; then return; fi
+    while IFS= read -r K; do
+        if [[ -z "$K" || "$K" == \#* ]]; then continue; fi
+        if echo "$C" | grep -iq "$K"; then
+            log_debug "Direct scan match: $K di $U"
+            jq -n --arg method "direct_scan" --arg url "$U" --arg keyword "$K" \
+                '{"method": $method, "url": $url, "keyword": $keyword}' >> "$RF"; break
         fi
-    done < "$keyword_list_file"
+    done < "$KLF"
 }
 export -f check_judi_homepage
 check_judi_bing() {
-    local target_domain="$1"
-    local keyword="$2"
-    local result_file="$3"
-    local dork_ua="$4"
-    local query; query=$(printf "site:%s \"%s\"" "$target_domain" "$keyword" | jq -sRr @uri)
-    local bing_url="https://www.bing.com/search?q=$query"
-    local response; response=$(curl -sL --max-time 10 -A "$dork_ua" "$bing_url")
-    if echo "$response" | grep -iq "$target_domain" && ! echo "$response" | grep -iqE "(Tidak ada hasil untuk|No results for)"; then
-        log_debug "Bing dork match for keyword: $keyword"
-        jq -n --arg method "bing_dork" --arg url "$bing_url" --arg keyword "$keyword" \
-            '{"method": $method, "url": "https://www.bing.com/search?q=site:'$target_domain'+\"'${keyword}'\"", "keyword": $keyword}' >> "$result_file"
+    local TD="$1"; local K="$2"; local RF="$3"; local UA="$4"
+    local Q; Q=$(printf "site:%s \"%s\"" "$TD" "$K" | jq -sRr @uri)
+    local BU="https://www.bing.com/search?q=$Q"
+    local R; R=$(curl -sL --max-time 10 -A "$UA" "$BU")
+    if echo "$R" | grep -iq "$TD" && ! echo "$R" | grep -iqE "(Tidak ada hasil untuk|No results for)"; then
+        log_debug "Bing dork match for keyword: $K"
+        jq -n --arg method "bing_dork" --arg url "$BU" --arg keyword "$K" \
+            '{"method": $method, "url": "https://www.bing.com/search?q=site:'$TD'+\"'${K}'\"", "keyword": $keyword}' >> "$RF"
     fi
 }
 export -f check_judi_bing
 run_module_judi() {
     log_info "Memulai Judi Online Finder..."
-    if [[ -z "$TARGET" ]]; then log_error "Target domain diperlukan. Gunakan --target <domain>"; return 1; fi
-    local sanitized_target
-    sanitized_target=$(echo "$TARGET" | sed -E 's~^https?://~~' | sed -E 's/^www\.//' | cut -d'/' -f1)
-    log_debug "Input asli '$TARGET' disanitasi menjadi '$sanitized_target'"
-    if [[ -z "$sanitized_target" ]]; then log_error "Input target tidak valid setelah sanitasi."; return 1; fi
+    if [[ -z "$TARGET" ]]; then log_error "Target domain diperlukan."; return 1; fi
+    local ST; ST=$(echo "$TARGET"|sed -E 's~^https?://~~'|sed -E 's/^www\.//'|cut -d'/' -f1)
+    log_debug "Input asli '$TARGET' disanitasi menjadi '$ST'"
+    if [[ -z "$ST" ]]; then log_error "Input target tidak valid."; return 1; fi
     if [[ ! -f "$JUDI_LIST" ]]; then log_error "Wordlist Judi tidak ditemukan di: $JUDI_LIST"; return 1; fi
-    local keyword_count; keyword_count=$(grep -vE "^\s*#|^\s*$" "$JUDI_LIST" | wc -l)
-    log_info "[*] Menggunakan $JUDI_LIST ($keyword_count keywords)"
-    local subdomain_file="/tmp/kinfo_last_subdomains_${sanitized_target}.txt"
-    local targets_to_scan=("$sanitized_target")
-    if [[ -f "$subdomain_file" ]]; then
-        log_info "[*] Menggunakan daftar subdomain dari scan Modul 1 ($subdomain_file)"
-        mapfile -t-O "${#targets_to_scan[@]}" targets_to_scan < <(grep -vE "^\s*#|^\s*$" "$subdomain_file")
-    else
-        log_warn "[*] Tidak ada daftar subdomain. Hanya memindai domain utama."
-    fi
-    local total_targets=${#targets_to_scan[@]}
-    log_info "[*] Total $total_targets domain/subdomain akan diperiksa..."
-    local temp_urls_to_check; temp_urls_to_check=$(add_temp_file)
-    local temp_json_lines; temp_json_lines=$(add_temp_file)
+    local kc; kc=$(grep -vE "^\s*#|^\s*$" "$JUDI_LIST" | wc -l)
+    log_info "[*] Menggunakan $JUDI_LIST ($kc keywords)"
+    local SF="/tmp/kinfo_last_subdomains_${ST}.txt"; local TS=("$ST")
+    if [[ -f "$SF" ]]; then
+        log_info "[*] Menggunakan daftar subdomain dari scan Modul 1 ($SF)"
+        mapfile -t-O "${#TS[@]}" TS < <(grep -vE "^\s*#|^\s*$" "$SF")
+    else log_warn "[*] Tidak ada daftar subdomain. Hanya memindai domain utama."; fi
+    local tt; tt=${#TS[@]}; log_info "[*] Total $tt domain/subdomain akan diperiksa..."
+    local TUC; TUC=$(add_temp_file); local TJL; TJL=$(add_temp_file)
     log_info "[*] Memulai Metode 1: Direct Scan (Homepage) (Paralel: $PARALLEL_JOBS)..."
-    for target in "${targets_to_scan[@]}"; do
-        echo "https://$target" >> "$temp_urls_to_check"
-        echo "http://$target" >> "$temp_urls_to_check"
-    done
-    export JUDI_LIST; export KINFO_USER_AGENT; export temp_json_lines
-    cat "$temp_urls_to_check" | xargs -P "$PARALLEL_JOBS" -I {} \
-        bash -c "check_judi_homepage \"{}\" \"$JUDI_LIST\" \"$temp_json_lines\""
+    for T in "${TS[@]}"; do echo "https://$T" >> "$TUC"; echo "http://$T" >> "$TUC"; done
+    export JUDI_LIST; export KINFO_USER_AGENT; export TJL
+    cat "$TUC" | xargs -P "$PARALLEL_JOBS" -I {} bash -c "check_judi_homepage \"{}\" \"$JUDI_LIST\" \"$TJL\""
     log_info "[*] Memulai Metode 2: Bing Dork Scan (Mencari di sub-halaman)..."
     export DORK_UA
-    grep -vE "^\s*#|^\s*$" "$JUDI_LIST" | \
-    xargs -P 5 -I {} \
-        bash -c "check_judi_bing \"$sanitized_target\" \"{}\" \"$temp_json_lines\" \"$DORK_UA\""
-    local found_count; found_count=$(wc -l < "$temp_json_lines")
-    log_info "[+] Pemindaian selesai."
-    if [[ "$found_count" -eq 0 ]]; then log_warn "Tidak ada konten judi yang terdeteksi."; return 0; fi
-    log_result "[FOUND] Ditemukan $found_count indikasi konten judi!"
-    local output_data
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        output_data=$(jq -s '.' "$temp_json_lines")
-    else
-        output_data=$(cat <<EOF
+    grep -vE "^\s*#|^\s*$" "$JUDI_LIST" | xargs -P 5 -I {} \
+        bash -c "check_judi_bing \"$ST\" \"{}\" \"$TJL\" \"$DORK_UA\""
+    local fc; fc=$(wc -l < "$TJL"); log_info "[+] Pemindaian selesai."
+    if [[ "$fc" -eq 0 ]]; then log_warn "Tidak ada konten judi yang terdeteksi."; return 0; fi
+    log_result "[FOUND] Ditemukan $fc indikasi konten judi!"
+    local OD
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then OD=$(jq -s '.' "$TJL"); else
+        OD=$(cat <<EOF
 Judi Online Finder Results
-Domain: $sanitized_target
+Domain: $ST
 Scan Time: $(date)
 ==================================
-$(cat "$temp_json_lines" | jq -r '"[+] (\(.method)) \(.url) (Keyword: \(.keyword))"')
+$(cat "$TJL" | jq -r '"[+] (\(.method)) \(.url) (Keyword: \(.keyword))"')
 EOF
 )
     fi
-    echo "$output_data" | tee "$OUTPUT_FILE" > /dev/null
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
@@ -467,43 +369,36 @@ EOF
 run_module_reverseip() {
     log_info "Memulai Reverse IP Lookup..."
     if [[ -z "$TARGET" ]]; then log_error "Target IP Address diperlukan."; return 1; fi
-    local ipaddr="$TARGET"
-    if [[ ! $ipaddr =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then log_error "Format IP tidak valid: $ipaddr"; return 1; fi
-    log_info "[*] Melakukan reverse IP lookup untuk $ipaddr..."
-    local viewdns_url="https://viewdns.info/reverseip/?host=$ipaddr&t=1"
-    local response; response=$(curl -s "$viewdns_url" -H "User-Agent: $KINFO_USER_AGENT")
-    local temp_domains; temp_domains=$(add_temp_file)
-    echo "$response" | grep -oP '(?<=<td>)[a-zA-Z0-9\-\.]+(?=</td>)' | grep -v "$ipaddr" | sort -u > "$temp_domains"
-    local domains; mapfile -t domains < "$temp_domains"; local total=${#domains[@]}
+    local IP="$TARGET"
+    if [[ ! $IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then log_error "Format IP tidak valid: $IP"; return 1; fi
+    log_info "[*] Melakukan reverse IP lookup untuk $IP..."
+    local VDU="https://viewdns.info/reverseip/?host=$IP&t=1"
+    local R; R=$(curl -s "$VDU" -H "User-Agent: $KINFO_USER_AGENT")
+    local TD; TD=$(add_temp_file); echo "$R" | grep -oP '(?<=<td>)[a-zA-Z0-9\-\.]+(?=</td>)' | grep -v "$IP" | sort -u > "$TD"
+    local D; mapfile -t D < "$TD"; local total=${#D[@]}
     if [[ $total -eq 0 ]]; then
         log_warn "[*] viewdns.info tidak mengembalikan hasil. Mencoba 'whois'..."
         if command -v whois &>/dev/null; then
-            local whois_result; whois_result=$(whois "$ipaddr" 2>/dev/null | grep -i "domain\|netname")
-            if [[ -n "$whois_result" ]]; then
-                log_warn "[!] Informasi terbatas dari WHOIS:"; echo "$whois_result" > "$temp_domains"
-            else
-                log_error "[!] Tidak ada domain ditemukan untuk IP $ipaddr"; return 1
-            fi
-        else
-            log_error "[!] 'whois' tidak terinstall. Tidak dapat melanjutkan."; return 1
-        fi
+            local WR; WR=$(whois "$IP" 2>/dev/null | grep -i "domain\|netname")
+            if [[ -n "$WR" ]]; then log_warn "[!] Informasi terbatas dari WHOIS:"; echo "$WR" > "$TD";
+            else log_error "[!] Tidak ada domain ditemukan untuk IP $IP"; return 1; fi
+        else log_error "[!] 'whois' tidak terinstall."; return 1; fi
     fi
-    local output_data
+    local OD
     if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        output_data=$(jq -n --arg ip "$ipaddr" --argjson domains "$(jq -Rsc 'split("\n") | map(select(length > 0))' "$temp_domains")" \
-            '{"ip": $ip, "domains": $domains}')
+        OD=$(jq -n --arg ip "$IP" --argjson domains "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$TD")" '{"ip": $ip, "domains": $domains}')
     else
-        output_data=$(cat <<EOF
+        OD=$(cat <<EOF
 Reverse IP Lookup Results
-Target IP: $ipaddr
+Target IP: $IP
 Scan Time: $(date)
 ==================================
 Domains:
-$(cat "$temp_domains")
+$(cat "$TD")
 EOF
 )
     fi
-    echo "$output_data" | tee "$OUTPUT_FILE" > /dev/null
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
@@ -511,34 +406,32 @@ EOF
 run_module_extract() {
     log_info "Memulai Extract Domain & Auto Add HTTPS..."
     if [[ -z "$TARGET" ]]; then log_error "Target URL diperlukan."; return 1; fi
-    local url="$TARGET"
-    local extracted; extracted=$(echo "$url" | sed -E 's~^https?://~~' | sed -E 's/^www\.//' | cut -d'/' -f1)
-    if [[ "$url" != *"//"* ]]; then extracted=$(echo "$url" | cut -d'/' -f1 | sed 's/^www\.//'); fi
-    local full_url="https://$extracted"
-    log_info "[*] URL Asli: $url"; log_info "[*] Ekstrak Domain: $extracted"; log_info "[*] HTTPS URL: $full_url"
-    local temp_headers; temp_headers=$(add_temp_file)
-    local status_code; status_code=$(curl -sI "$full_url" --max-time 5 -o "$temp_headers" -w "%{http_code}" -H "User-Agent: $KINFO_USER_AGENT")
-    local sec_headers=(); mapfile -t sec_headers < <(grep -i "x-frame-options\|content-security-policy\|strict-transport-security" "$temp_headers")
-    log_info "[*] Status Kode: $status_code"
-    local output_data
+    local U="$TARGET"; local E; E=$(echo "$U"|sed -E 's~^https?://~~'|sed -E 's/^www\.//'|cut -d'/' -f1)
+    if [[ "$U" != *"//"* ]]; then E=$(echo "$U"|cut -d'/' -f1|sed 's/^www\.//'); fi
+    local FU="https://$E"; log_info "[*] URL Asli: $U"; log_info "[*] Ekstrak Domain: $E"; log_info "[*] HTTPS URL: $FU"
+    local TH; TH=$(add_temp_file)
+    local SC; SC=$(curl -sI "$FU" --max-time 5 -o "$TH" -w "%{http_code}" -H "User-Agent: $KINFO_USER_AGENT")
+    local SH=(); mapfile -t SH < <(grep -i "x-frame-options\|content-security-policy\|strict-transport-security" "$TH")
+    log_info "[*] Status Kode: $SC"
+    local OD
     if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        output_data=$(jq -n --arg original "$url" --arg domain "$extracted" --arg https_url "$full_url" --arg status "$status_code" \
-            --argjson headers "$(printf "%s\n" "${sec_headers[@]}" | jq -Rsc 'split("\n") | map(select(length > 0))')" \
+        OD=$(jq -n --arg original "$U" --arg domain "$E" --arg https_url "$FU" --arg status "$SC" \
+            --argjson headers "$(printf "%s\n" "${SH[@]}"|jq -Rsc 'split("\n")|map(select(length > 0))')" \
             '{"original_url": $original, "extracted_domain": $domain, "https_url": $https_url, "status_code": $status, "security_headers": $headers}')
     else
-        output_data=$(cat <<EOF
+        OD=$(cat <<EOF
 Extract Domain & Header Check
-Original: $url
-Extracted: $extracted
-HTTPS URL: $full_url
+Original: $U
+Extracted: $E
+HTTPS URL: $FU
 ==================================
-Status Code: $status_code
+Status Code: $SC
 Security Headers:
-$(printf "%s\n" "${sec_headers[@]}" | sed 's/^/  /')
+$(printf "%s\n" "${SH[@]}" | sed 's/^/  /')
 EOF
 )
     fi
-    echo "$output_data" | tee "$OUTPUT_FILE" > /dev/null
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
@@ -548,82 +441,69 @@ run_module_webscan() {
     if [[ -z "$TARGET" ]]; then log_error "Target URL diperlukan."; return 1; fi
     if [[ ! "$TARGET" =~ ^https?:// ]]; then TARGET="https://$TARGET"; fi
     TARGET=$(echo "$TARGET" | sed 's:/*$::')
-    local webshell_paths=("shell.php" "backdoor.php" "cmd.php" "wso.php" "up.php" "upload.php" "sh.php" "phpinfo.php" "info.php" "test.php" "1.php" "wordpress.php" "IndoXploit.php" "b374k.php" "adminer.php" "phpMyAdmin/index.php" "pma/index.php" "mysql.php" "wp-config.php" "configuration.php" "settings.php" "web.config" "shell.jsp" "cmd.asp" "shell.aspx" ".git/config" "composer.json" "package.json" "install.php" "admin.php" "login.php" "wp-login.php" "administrator/index.php" "user/login" "dashboard" "panel" "control" "manager" "adminpanel" "cpanel" "webmail" "upload" "uploads" "file" "files" "log" "logs" "temp" "tmp" "cache" "backup" "backups" "dev" "test" "api-docs" "swagger" "docs" "status" "health" "server-status" "server-info")
-    local total_lines=${#webshell_paths[@]}
-    log_info "[*] Memulai pemindaian pada $TARGET ($total_lines path internal, Paralel: $PARALLEL_JOBS)..."
-    local temp_json_lines; temp_json_lines=$(add_temp_file)
-    local temp_path_list; temp_path_list=$(add_temp_file)
-    printf "%s\n" "${webshell_paths[@]}" > "$temp_path_list"
-    export TARGET; export RATE_LIMIT; export KINFO_USER_AGENT; export temp_json_lines
-    cat "$temp_path_list" | \
-    xargs -P "$PARALLEL_JOBS" -I {} \
-        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$temp_json_lines\""
-    local found_count; found_count=$(wc -l < "$temp_json_lines")
-    log_info "[+] Pemindaian selesai. Ditemukan $found_count item menarik."
-    if [[ "$found_count" -eq 0 ]]; then log_warn "Tidak ada item yang ditemukan."; return 0; fi
-    local output_data
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        output_data=$(jq -s '.' "$temp_json_lines")
-    else
-        output_data=$(cat <<EOF
+    local WSP=("shell.php" "backdoor.php" "cmd.php" "wso.php" "up.php" "upload.php" "sh.php" "phpinfo.php" "info.php" "test.php" "1.php" "wordpress.php" "IndoXploit.php" "b374k.php" "adminer.php" "phpMyAdmin/index.php" "pma/index.php" "mysql.php" "wp-config.php" "configuration.php" "settings.php" "web.config" "shell.jsp" "cmd.asp" "shell.aspx" ".git/config" "composer.json" "package.json" "install.php" "admin.php" "login.php" "wp-login.php" "administrator/index.php" "user/login" "dashboard" "panel" "control" "manager" "adminpanel" "cpanel" "webmail" "upload" "uploads" "file" "files" "log" "logs" "temp" "tmp" "cache" "backup" "backups" "dev" "test" "api-docs" "swagger" "docs" "status" "health" "server-status" "server-info")
+    local total=${#WSP[@]}
+    log_info "[*] Memulai pemindaian pada $TARGET ($total path internal, Paralel: $PARALLEL_JOBS)..."
+    local TJL; TJL=$(add_temp_file); local TPL; TPL=$(add_temp_file); printf "%s\n" "${WSP[@]}" > "$TPL"
+    export TARGET; export RATE_LIMIT; export KINFO_USER_AGENT; export TJL
+    cat "$TPL" | xargs -P "$PARALLEL_JOBS" -I {} \
+        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$TJL\""
+    local fc; fc=$(wc -l < "$TJL"); log_info "[+] Pemindaian selesai. Ditemukan $fc item."
+    if [[ "$fc" -eq 0 ]]; then log_warn "Tidak ada item yang ditemukan."; return 0; fi
+    local OD
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then OD=$(jq -s '.' "$TJL"); else
+        OD=$(cat <<EOF
 Webshell/Dir Scan Results
 Target: $TARGET
 Scan Time: $(date)
 ==================================
-$(cat "$temp_json_lines" | jq -r '"[\(.status)] \(.url) (Size: \(.size))"' | sort)
+$(cat "$TJL" | jq -r '"[\(.status)] \(.url) (Size: \(.size))"' | sort)
 EOF
 )
     fi
-    echo "$output_data" | tee "$OUTPUT_FILE" > /dev/null
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
 # --- [MODUL 8] WEBSHELL FINDER [FILE ENUM] ---
 check_file_suspicious() {
-    local file="$1"
-    local keyword_regex="$2"
-    local result_file="$3"
-    local file_size_b; file_size_b=$(stat -c%s "$file" 2>/dev/null || echo 0)
-    if [[ "$file_size_b" -gt 1000000 ]]; then return; fi # Skip file > 1MB
-    local matched_keyword; matched_keyword=$(grep -E -o "$keyword_regex" "$file" 2>/dev/null | head -1)
-    if [[ -n "$matched_keyword" ]]; then
-        local size; size=$(du -h "$file" 2>/dev/null | cut -f1)
-        local modified; modified=$(stat -c %y "$file" 2>/dev/null | cut -d'.' -f1)
-        jq -n --arg file "$file" --arg size "$size" --arg modified "$modified" --arg keyword "$matched_keyword" \
-            '{"file": $file, "size": $size, "modified": $modified, "matched_keyword": $keyword}' >> "$result_file"
+    local F="$1"; local KR="$2"; local RF="$3"
+    local FS; FS=$(stat -c%s "$F" 2>/dev/null || echo 0)
+    if [[ "$FS" -gt 1000000 ]]; then return; fi
+    local MK; MK=$(grep -E -o "$KR" "$F" 2>/dev/null | head -1)
+    if [[ -n "$MK" ]]; then
+        local SZ; SZ=$(du -h "$F" 2>/dev/null | cut -f1)
+        local M; M=$(stat -c %y "$F" 2>/dev/null | cut -d'.' -f1)
+        jq -n --arg file "$F" --arg size "$SZ" --arg modified "$M" --arg keyword "$MK" \
+            '{"file": $file, "size": $size, "modified": $modified, "matched_keyword": $keyword}' >> "$RF"
     fi
 }
 export -f check_file_suspicious
 run_module_filescan() {
     log_info "Memulai Webshell Finder [File Enumeration]..."
     if [[ -z "$TARGET" ]]; then log_error "Target path direktori lokal diperlukan."; return 1; fi
-    local scan_dir="$TARGET"
-    if [[ ! -d "$scan_dir" ]]; then log_error "Direktori tidak ada: $scan_dir"; return 1; fi
-    local suspicious_keywords=("eval" "base64_decode" "gzinflate" "exec" "system" "passthru" "shell_exec" "assert" "preg_replace.*\/e" "create_function" "call_user_func" "array_map" "ob_start" "error_reporting\(0\)" "\$_(POST|GET|REQUEST|COOKIE|SERVER)" "file_put_contents" "fwrite" "fopen" "curl_exec" "file_get_contents" "include" "require" "chr\(" "ord\(" "hex2bin" "str_rot13" "strrev" "GLOBALS" "FLAG" "password" "token" "key" "secret")
-    local keyword_regex; keyword_regex=$(printf "%s|" "${suspicious_keywords[@]}"); keyword_regex="${keyword_regex%|}"
-    log_info "[*] Memindai file mencurigakan di: $scan_dir (Paralel: $PARALLEL_JOBS)..."
-    local temp_json_lines; temp_json_lines=$(add_temp_file)
-    export keyword_regex; export temp_json_lines
-    find "$scan_dir" -type f \( -iname "*.php" -o -iname "*.phtml" -o -iname "*.php3" -o -iname "*.php4" -o -iname "*.php5" -o -iname "*.inc" -o -iname "*.asp" -o -iname "*.aspx" -o -iname "*.jsp" \) -print0 2>/dev/null | \
+    local SD="$TARGET"; if [[ ! -d "$SD" ]]; then log_error "Direktori tidak ada: $SD"; return 1; fi
+    local SKW=("eval" "base64_decode" "gzinflate" "exec" "system" "passthru" "shell_exec" "assert" "preg_replace.*\/e" "create_function" "call_user_func" "array_map" "ob_start" "error_reporting\(0\)" "\$_(POST|GET|REQUEST|COOKIE|SERVER)" "file_put_contents" "fwrite" "fopen" "curl_exec" "file_get_contents" "include" "require" "chr\(" "ord\(" "hex2bin" "str_rot13" "strrev" "GLOBALS" "FLAG" "password" "token" "key" "secret")
+    local KR; KR=$(printf "%s|" "${SKW[@]}"); KR="${KR%|}"
+    log_info "[*] Memindai file mencurigakan di: $SD (Paralel: $PARALLEL_JOBS)..."
+    local TJL; TJL=$(add_temp_file); export KR; export TJL
+    find "$SD" -type f \( -iname "*.php" -o -iname "*.phtml" -o -iname "*.php3" -o -iname "*.php4" -o -iname "*.php5" -o -iname "*.inc" -o -iname "*.asp" -o -iname "*.aspx" -o -iname "*.jsp" \) -print0 2>/dev/null | \
     xargs -0 -P "$PARALLEL_JOBS" -I {} \
-        bash -c "check_file_suspicious \"{}\" \"$keyword_regex\" \"$temp_json_lines\""
-    local found_count; found_count=$(wc -l < "$temp_json_lines")
-    log_info "[+] Pemindaian selesai. Ditemukan $found_count file mencurigakan."
-    if [[ "$found_count" -eq 0 ]]; then log_warn "Tidak ada file mencurigakan yang ditemukan."; return 0; fi
-    local output_data
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        output_data=$(jq -s '.' "$temp_json_lines")
-    else
-        output_data=$(cat <<EOF
+        bash -c "check_file_suspicious \"{}\" \"$KR\" \"$TJL\""
+    local fc; fc=$(wc -l < "$TJL"); log_info "[+] Pemindaian selesai. Ditemukan $fc file mencurigakan."
+    if [[ "$fc" -eq 0 ]]; then log_warn "Tidak ada file mencurigakan yang ditemukan."; return 0; fi
+    local OD
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then OD=$(jq -s '.' "$TJL"); else
+        OD=$(cat <<EOF
 Webshell File Enumeration Results
-Directory: $scan_dir
+Directory: $SD
 Scan Time: $(date)
 ==================================
-$(cat "$temp_json_lines" | jq -r '"[!] \(.file) (Size: \(.size), Keyword: \(.keyword))"')
+$(cat "$TJL" | jq -r '"[!] \(.file) (Size: \(.size), Keyword: \(.keyword))"')
 EOF
 )
     fi
-    echo "$output_data" | tee "$OUTPUT_FILE" > /dev/null
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
@@ -633,77 +513,28 @@ run_module_envscan() {
     if [[ -z "$TARGET" ]]; then log_error "Target URL diperlukan."; return 1; fi
     if [[ ! "$TARGET" =~ ^https?:// ]]; then TARGET="https://$TARGET"; fi
     TARGET=$(echo "$TARGET" | sed 's:/*$::')
-
-    # *** DIPERBARUI v2.5: Daftar diperluas dengan subfolder ***
-    local env_files=(
-        # ENV & Config
-        ".env" ".env.backup" ".env.local" ".env.example" "config/.env"
-        "configuration.php" "settings.php" "database.php" "db.php"
-        "wp-config.php" "config.php" "config/database.yml" ".htpasswd" ".htaccess" "web.config"
-        # Debug
-        "debug.php" "phpinfo.php" "info.php" "test.php" "status" "health" "metrics"
-        "actuator" "healthz" "readyz" "swagger" "api-docs" "v1/swagger" "docs"
-        "robots.txt" "sitemap.xml" "server-status" "server-info"
-        "composer.json" "package.json" "Dockerfile" "docker-compose.yml" "requirements.txt"
-
-        # --- Penambahan .sql dan backup (Permintaan User) ---
-        # Root level
-        "backup.sql" "db.sql" "database.sql" "data.sql" "dump.sql" "site.sql"
-        "backup.tar.gz" "backup.zip" "backup.rar" "site.tar.gz" "site.zip"
-        "database.zip" "database.tar.gz" "db.zip" "db.tar.gz" "www.zip" "www.tar.gz"
-        
-        # --- Penambahan Subfolder (Permintaan User) ---
-        # /backup/
-        "backup/backup.sql" "backup/db.sql" "backup/dump.sql"
-        "backup/backup.zip" "backup/site.zip" "backup/db.zip" "backup/backup.tar.gz"
-        # /backups/
-        "backups/backup.sql" "backups/db.sql" "backups/dump.sql"
-        "backups/backup.zip" "backups/site.zip" "backups/db.zip" "backups/backup.tar.gz"
-        # /sql/
-        "sql/backup.sql" "sql/db.sql" "sql/dump.sql" "sql/database.sql"
-        "sql/backup.zip" "sql/db.zip"
-        # /files/
-        "files/backup.sql" "files/db.sql" "files/dump.sql"
-        "files/backup.zip" "files/site.zip"
-        # /db/
-        "db/dump.sql" "db/db.sql" "db/database.sql"
-        "db/backup.zip" "db/db.zip"
-        # /uploads/
-        "uploads/backup.sql" "uploads/db.sql" "uploads/dump.sql"
-        "uploads/backup.zip" "uploads/site.zip"
-        # /_backup/
-        "_backup/backup.sql" "_backup/db.sql" "_backup/dump.sql"
-        "_backup/backup.zip" "_backup/site.zip"
-        # /_db/
-        "_db/dump.sql" "_db/db.sql"
-    )
-
-    local total_lines=${#env_files[@]}
-    log_info "[*] Memulai pemindaian pada $TARGET ($total_lines path internal, Paralel: $PARALLEL_JOBS)..."
-    local temp_json_lines; temp_json_lines=$(add_temp_file)
-    local temp_path_list; temp_path_list=$(add_temp_file)
-    printf "%s\n" "${env_files[@]}" > "$temp_path_list"
-    export TARGET; export RATE_LIMIT; export KINFO_USER_AGENT; export temp_json_lines
-    cat "$temp_path_list" | \
-    xargs -P "$PARALLEL_JOBS" -I {} \
-        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$temp_json_lines\""
-    local found_count; found_count=$(wc -l < "$temp_json_lines")
-    log_info "[+] Pemindaian selesai. Ditemukan $found_count item menarik."
-    if [[ "$found_count" -eq 0 ]]; then log_warn "Tidak ada item yang ditemukan."; return 0; fi
-    local output_data
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        output_data=$(jq -s '.' "$temp_json_lines")
-    else
-        output_data=$(cat <<EOF
+    # v2.5: Daftar diperluas dengan .sql, .backup, dan subfolder umum
+    local EF=(".env" ".env.backup" ".env.local" ".env.example" "config/.env" "configuration.php" "settings.php" "database.php" "db.php" "wp-config.php" "config.php" "config/database.yml" ".htpasswd" ".htaccess" "web.config" "debug.php" "phpinfo.php" "info.php" "test.php" "status" "health" "metrics" "actuator" "healthz" "readyz" "swagger" "api-docs" "v1/swagger" "docs" "robots.txt" "sitemap.xml" "server-status" "server-info" "composer.json" "package.json" "Dockerfile" "docker-compose.yml" "requirements.txt" "backup.sql" "db.sql" "database.sql" "data.sql" "dump.sql" "site.sql" "backup.tar.gz" "backup.zip" "backup.rar" "site.tar.gz" "site.zip" "database.zip" "database.tar.gz" "db.zip" "db.tar.gz" "www.zip" "www.tar.gz" "backup/backup.sql" "backup/db.sql" "backup/dump.sql" "backup/backup.zip" "backup/site.zip" "backup/db.zip" "backup/backup.tar.gz" "backups/backup.sql" "backups/db.sql" "backups/dump.sql" "backups/backup.zip" "backups/site.zip" "backups/db.zip" "backups/backup.tar.gz" "sql/backup.sql" "sql/db.sql" "sql/dump.sql" "sql/database.sql" "sql/backup.zip" "sql/db.zip" "files/backup.sql" "files/db.sql" "files/dump.sql" "files/backup.zip" "files/site.zip" "db/dump.sql" "db/db.sql" "db/database.sql" "db/backup.zip" "db/db.zip" "uploads/backup.sql" "uploads/db.sql" "uploads/dump.sql" "uploads/backup.zip" "uploads/site.zip" "_backup/backup.sql" "_backup/db.sql" "_backup/dump.sql" "_backup/backup.zip" "_backup/site.zip" "_db/dump.sql" "_db/db.sql")
+    local total=${#EF[@]}
+    log_info "[*] Memulai pemindaian pada $TARGET ($total path internal, Paralel: $PARALLEL_JOBS)..."
+    local TJL; TJL=$(add_temp_file); local TPL; TPL=$(add_temp_file); printf "%s\n" "${EF[@]}" > "$TPL"
+    export TARGET; export RATE_LIMIT; export KINFO_USER_AGENT; export TJL
+    cat "$TPL" | xargs -P "$PARALLEL_JOBS" -I {} \
+        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$TJL\""
+    local fc; fc=$(wc -l < "$TJL"); log_info "[+] Pemindaian selesai. Ditemukan $fc item."
+    if [[ "$fc" -eq 0 ]]; then log_warn "Tidak ada item yang ditemukan."; return 0; fi
+    local OD
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then OD=$(jq -s '.' "$TJL"); else
+        OD=$(cat <<EOF
 ENV & Debug Scan Results
 Target: $TARGET
 Scan Time: $(date)
 ==================================
-$(cat "$temp_json_lines" | jq -r '"[\(.status)] \(.url) (Size: \(.size))"' | sort)
+$(cat "$TJL" | jq -r '"[\(.status)] \(.url) (Size: \(.size))"' | sort)
 EOF
 )
     fi
-    echo "$output_data" | tee "$OUTPUT_FILE" > /dev/null
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
@@ -711,52 +542,37 @@ EOF
 run_module_wpcheck() {
     log_info "Memulai WordPress Registration Finder..."
     if [[ -z "$TARGET" ]]; then log_error "Target domain diperlukan."; return 1; fi
-    local sanitized_target
-    sanitized_target=$(echo "$TARGET" | sed -E 's~^https?://~~' | sed -E 's/^www\.//' | cut -d'/' -f1)
-    
-    local wp_url="https://$sanitized_target"
-    log_info "[*] Memeriksa situs WordPress di $wp_url"
-    local response; response=$(curl -sIL "$wp_url" --connect-timeout 3 --max-time 5 -H "User-Agent: $KINFO_USER_AGENT" 2>/dev/null)
-    if ! echo "$response" | grep -qi "wp-content\|wordpress"; then
-        log_warn "[!] Ini tampaknya bukan situs WordPress. Tetap melanjutkan..."
-    fi
-    local reg_paths=("wp-login.php?action=register" "wp-signup.php" "register" "signup" "create-account" "registration")
-    local temp_json_lines; temp_json_lines=$(add_temp_file)
-    local temp_path_list; temp_path_list=$(add_temp_file)
-    printf "%s\n" "${reg_paths[@]}" > "$temp_path_list"
-    export TARGET="$wp_url"; export RATE_LIMIT=0; export KINFO_USER_AGENT; export temp_json_lines
-    cat "$temp_path_list" | \
-    xargs -P "$PARALLEL_JOBS" -I {} \
-        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$temp_json_lines\""
-    local found_url=""; local found_status=""
-    while IFS= read -r line; do
-        if [[ $(echo "$line" | jq -r '.status') == "200" ]]; then
-            found_url=$(echo "$line" | jq -r '.url'); found_status="200"; break
-        fi
-    done < "$temp_json_lines"
-    local result_details=""
-    if [[ -n "$found_url" ]]; then
-        log_result "[+] Ditemukan halaman registrasi potensial: $found_url"
-        result_details="Halaman registrasi ditemukan di $found_url"
-    else
-        log_warn "[-] Tidak ada halaman registrasi (200 OK) yang ditemukan."
-        result_details="Tidak ada halaman registrasi umum (200 OK) yang ditemukan."
-    fi
-    local output_data
+    local ST; ST=$(echo "$TARGET"|sed -E 's~^https?://~~'|sed -E 's/^www\.//'|cut -d'/' -f1)
+    local WU="https://$ST"; log_info "[*] Memeriksa situs WordPress di $WU"
+    local R; R=$(curl -sIL "$WU" --connect-timeout 3 --max-time 5 -H "User-Agent: $KINFO_USER_AGENT" 2>/dev/null)
+    if ! echo "$R" | grep -qi "wp-content\|wordpress"; then log_warn "[!] Ini tampaknya bukan situs WordPress."; fi
+    local RP=("wp-login.php?action=register" "wp-signup.php" "register" "signup" "create-account" "registration")
+    local TJL; TJL=$(add_temp_file); local TPL; TPL=$(add_temp_file); printf "%s\n" "${RP[@]}" > "$TPL"
+    export TARGET="$WU"; export RATE_LIMIT=0; export KINFO_USER_AGENT; export TJL
+    cat "$TPL" | xargs -P "$PARALLEL_JOBS" -I {} \
+        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$TJL\""
+    local FU=""; local FS=""
+    while IFS= read -r L; do
+        if [[ $(echo "$L" | jq -r '.status') == "200" ]]; then FU=$(echo "$L" | jq -r '.url'); FS="200"; break; fi
+    done < "$TJL"
+    local RD=""
+    if [[ -n "$FU" ]]; then log_result "[+] Ditemukan halaman registrasi potensial: $FU"; RD="Halaman registrasi ditemukan di $FU";
+    else log_warn "[-] Tidak ada halaman registrasi (200 OK) yang ditemukan."; RD="Tidak ada halaman registrasi (200 OK) yang ditemukan."; fi
+    local OD
     if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        output_data=$(jq -n --arg domain "$sanitized_target" --arg found_url "$found_url" --arg details "$result_details" \
+        OD=$(jq -n --arg domain "$ST" --arg found_url "$FU" --arg details "$RD" \
             '{"domain": $domain, "registration_page_found": (if $found_url != "" then true else false end), "url": $found_url, "details": $details}')
     else
-        output_data=$(cat <<EOF
+        OD=$(cat <<EOF
 WordPress Registration Finder Results
-Target: $sanitized_target
+Target: $ST
 Scan Time: $(date)
 ==================================
-Status: $result_details
+Status: $RD
 EOF
 )
     fi
-    echo "$output_data" | tee "$OUTPUT_FILE" > /dev/null
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
@@ -764,47 +580,40 @@ EOF
 run_module_zoneh() {
     log_info "Memulai Grab Domain dari Zone-H..."
     if [[ -z "$TARGET" ]]; then log_error "Nama Notifier diperlukan."; return 1; fi
-    local notifier="$TARGET"; local zoneh_url="http://www.zone-h.org/archive/notifier=$notifier"
-    log_info "[*] Mengambil data dari Zone-H untuk notifier: $notifier"
-    local response; response=$(curl -s "$zoneh_url" --connect-timeout 10 -H "User-Agent: $KINFO_USER_AGENT" 2>/dev/null)
-    if [[ -z "$response" ]]; then log_error "Gagal mengambil data dari Zone-H"; return 1; fi
-    local temp_domains; temp_domains=$(add_temp_file)
-    echo "$response" | grep -oP '(?<=<td>)[a-zA-Z0-9\-\.]+(?=</td>)' | grep -v "Domain" | sort -u > "$temp_domains"
-    local domain_count; domain_count=$(wc -l < "$temp_domains")
-    if [[ $domain_count -eq 0 ]]; then log_warn "Tidak ada domain ditemukan untuk notifier ini."; return 0; fi
-    log_info "[+] Ditemukan $domain_count domain."
-    local output_data
+    local N="$TARGET"; local ZU="http://www.zone-h.org/archive/notifier=$N"
+    log_info "[*] Mengambil data dari Zone-H untuk notifier: $N"
+    local R; R=$(curl -s "$ZU" --connect-timeout 10 -H "User-Agent: $KINFO_USER_AGENT" 2>/dev/null)
+    if [[ -z "$R" ]]; then log_error "Gagal mengambil data dari Zone-H"; return 1; fi
+    local TD; TD=$(add_temp_file); echo "$R" | grep -oP '(?<=<td>)[a-zA-Z0-9\-\.]+(?=</td>)' | grep -v "Domain" | sort -u > "$TD"
+    local dc; dc=$(wc -l < "$TD"); if [[ $dc -eq 0 ]]; then log_warn "Tidak ada domain ditemukan."; return 0; fi
+    log_info "[+] Ditemukan $dc domain."
+    local OD
     if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        output_data=$(jq -n --arg notifier "$notifier" --argjson domains "$(jq -Rsc 'split("\n") | map(select(length > 0))' "$temp_domains")" \
-            '{"notifier": $notifier, "domains": $domains}')
+        OD=$(jq -n --arg notifier "$N" --argjson domains "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$TD")" '{"notifier": $notifier, "domains": $domains}')
     else
-        output_data=$(cat <<EOF
+        OD=$(cat <<EOF
 Zone-H Grabber Results
-Notifier: $notifier
+Notifier: $N
 Scan Time: $(date)
 ======================
-$(cat "$temp_domains")
+$(cat "$TD")
 EOF
 )
     fi
-    echo "$output_data" | tee "$OUTPUT_FILE" > /dev/null
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
 # --- [MODUL 12] MINI SHELL FTP CLIENT (INTERAKTIF SAJA) ---
 mini_ftp_client() {
     log_info "Memulai Mini Shell FTP Client..."
-    local ftp_host ftp_port ftp_user ftp_pass
-    read -p "Enter FTP host: " ftp_host
-    read -p "Enter FTP port (default 21): " ftp_port
-    read -p "Enter username: " ftp_user
-    read -sp "Enter password: " ftp_pass; echo ""
-    if [[ -z "$ftp_host" || -z "$ftp_user" ]]; then log_error "Host dan username tidak boleh kosong!"; return 1; fi
-    if [[ -z "$ftp_port" ]]; then ftp_port=21; fi
-    if ! command -v ftp &>/dev/null; then log_error "FTP client tidak ditemukan!"; return 1; fi
+    local H P U PW; read -p "Enter FTP host: " H; read -p "Enter FTP port (default 21): " P
+    read -p "Enter username: " U; read -sp "Enter password: " PW; echo ""
+    if [[ -z "$H" || -z "$U" ]]; then log_error "Host dan username tidak boleh kosong!"; return 1; fi
+    if [[ -z "$P" ]]; then P=21; fi; if ! command -v ftp &>/dev/null; then log_error "FTP client tidak ditemukan!"; return 1; fi
     echo ""; echo "FTP Client Commands:"; echo "  ls, cd, pwd, get, put, mkdir, rmdir, delete, rename"; echo "  binary, ascii, passive, exit"; echo "=============================="
-    ftp -inv "$ftp_host" "$ftp_port" <<EOF
-user $ftp_user $ftp_pass
+    ftp -inv "$H" "$P" <<EOF
+user $U $PW
 passive
 binary
 prompt
@@ -812,6 +621,111 @@ prompt
 EOF
     log_info "Sesi FTP ditutup."
 }
+
+# --- *** BARU v2.6 *** [MODUL 13] CEK PROSES LOKAL ---
+run_module_local_ps() {
+    log_info "Memulai Pengecekan Proses Mencurigakan (Lokal)..."
+    if ! command -v ps &>/dev/null; then log_error "Perintah 'ps' tidak ditemukan."; return 1; fi
+    
+    # User web server yang umum
+    local web_users="www-data|apache|nginx|httpd|nobody"
+    log_info "Mencari proses yang berjalan sebagai: $web_users"
+    
+    local temp_ps; temp_ps=$(add_temp_file)
+    ps aux | grep -E "$web_users" | grep -v "grep" > "$temp_ps"
+    
+    local fc; fc=$(wc -l < "$temp_ps")
+    log_info "[+] Ditemukan $fc proses yang cocok."
+    
+    local OD
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        OD=$(jq -n --argjson processes "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$temp_ps")" \
+            '{"module": "local_processes", "web_users_checked": $web_users, "processes": $processes}')
+    else
+        OD=$(cat <<EOF
+Pengecekan Proses Lokal (Web Users)
+Waktu: $(date)
+User dicek: $web_users
+==================================
+USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+$(cat "$temp_ps")
+EOF
+)
+    fi
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
+    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+}
+
+# --- *** BARU v2.6 *** [MODUL 14] CEK JARINGAN LOKAL ---
+run_module_local_net() {
+    log_info "Memulai Pengecekan Koneksi Jaringan (Lokal)..."
+    local net_cmd=""
+    if command -v ss &>/dev/null; then net_cmd="ss -antp";
+    elif command -v netstat &>/dev/null; then net_cmd="netstat -antp";
+    else log_error "Perintah 'netstat' atau 'ss' tidak ditemukan."; return 1; fi
+
+    log_info "Menjalankan '$net_cmd'. Mencari koneksi ESTABLISHED atau LISTEN..."
+    
+    local temp_net; temp_net=$(add_temp_file)
+    (echo "HEADER: Proto Recv-Q Send-Q Local Address Foreign Address State PID/Program name"; \
+     sudo $net_cmd 2>/dev/null | grep -E "(ESTABLISHED|LISTEN)") > "$temp_net"
+    
+    local fc; fc=$(( $(wc -l < "$temp_net") - 1 ))
+    log_info "[+] Ditemukan $fc koneksi menarik."
+
+    local OD
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        OD=$(jq -n --arg command_used "$net_cmd" --argjson connections "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$temp_net")" \
+            '{"module": "local_network", "command": $command_used, "connections": $connections}')
+    else
+        OD=$(cat <<EOF
+Pengecekan Jaringan Lokal (ESTABLISHED & LISTEN)
+Waktu: $(date)
+Perintah: $net_cmd (Mungkin perlu sudo untuk melihat nama program)
+==================================
+$(cat "$temp_net")
+EOF
+)
+    fi
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
+    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+}
+
+# --- *** BARU v2.6 *** [MODUL 15] CEK USER & CRON LOKAL ---
+run_module_local_users() {
+    log_info "Memulai Pengecekan User & Cron (Lokal)..."
+    
+    local temp_info; temp_info=$(add_temp_file)
+    
+    echo "--- /etc/passwd (User uid >= 1000 atau uid = 0) ---" >> "$temp_info"
+    awk -F: '($3 >= 1000 || $3 == 0) {print}' /etc/passwd >> "$temp_info"
+    
+    echo "" >> "$temp_info"
+    echo "--- Crontab (root) ---" >> "$temp_info"
+    (crontab -l -u root 2>/dev/null || echo "Tidak ada crontab untuk root") >> "$temp_info"
+
+    echo "" >> "$temp_info"
+    echo "--- Crontab (current user: $USER) ---" >> "$temp_info"
+    (crontab -l 2>/dev/null || echo "Tidak ada crontab untuk $USER") >> "$temp_info"
+
+    log_info "[+] Pengecekan user dan cron selesai."
+    
+    local OD
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        OD=$(jq -n --arg info "$(cat "$temp_info")" '{"module": "local_users_cron", "info": $info}')
+    else
+        OD=$(cat <<EOF
+Pengecekan User & Cron Lokal
+Waktu: $(date)
+==================================
+$(cat "$temp_info")
+EOF
+)
+    fi
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
+    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+}
+
 
 # --- MODE INTERAKTIF (FUNGSI ASLI) ---
 main_interactive() {
@@ -822,13 +736,22 @@ main_interactive() {
     while true; do
         show_banner
         echo "┌──(${USER})-[KINFO]"; echo "└─$ INCIDENT RESPONSE MENU:"; echo ""
-        echo " [1] Enhanced Subdomain Finder"; echo " [2] Directory/File Enumeration (wordlist.txt)"
-        echo " [3] FTP Bruteforce (FTP/FTPS) (ftpbrute.txt)"; echo " [4] Judi Online Finder (judilist.txt)"
+        echo "--- REMOTE SCANNER ---"
+        echo " [1] Enhanced Subdomain Finder"; echo " [2] Directory/File Enumeration"
+        echo " [3] FTP Bruteforce (FTP/FTPS)"; echo " [4] Judi Online Finder"
         echo " [5] Reverse IP Lookup"; echo " [6] Extract Domain [Auto Add HTTPS]"
-        echo " [7] Webshell Finder [DirScan]"; echo " [8] Webshell Finder [File Enumeration]"
-        echo " [9] ENV & Debug Method Scanner"; echo " [10] WordPress Registration Finder"
-        echo " [11] Grab Domain from Zone-H"; echo " [12] Mini Shell FTP Client"; echo " [13] Exit"; echo ""
-        read -p "Select Option (1-13): " pilihan
+        echo " [7] Webshell Finder [DirScan]"; echo " [9] ENV & Debug Method Scanner"
+        echo " [10] WordPress Registration Finder"; echo " [11] Grab Domain from Zone-H"
+        echo ""
+        echo "--- LOCAL IR ---"
+        echo " [8] Webshell Finder [File Enumeration]"
+        echo " [12] Mini Shell FTP Client"
+        echo " [13] Pengecekan Proses Mencurigakan (Lokal)"
+        echo " [14] Pengecekan Koneksi Jaringan (Lokal)"
+        echo " [15] Pengecekan User & Cron (Lokal)"
+        echo " [16] Exit"
+        echo ""
+        read -p "Select Option (1-16): " pilihan
         TARGET=""; OUTPUT_FILE="/tmp/kinfo_interactive_$(date +%s).txt"
         log_info "Output (jika ada) akan disimpan ke: $OUTPUT_FILE"
         case $pilihan in
@@ -844,10 +767,13 @@ main_interactive() {
             10) read -p "Enter domain (e.g., target.com): " TARGET; run_module_wpcheck ;;
             11) read -p "Enter Zone-H notifier name: " TARGET; run_module_zoneh ;;
             12) mini_ftp_client ;;
-            13) break ;;
-            *) log_error "Opsi tidak valid. Silakan pilih 1-13"; sleep 2 ;;
+            13) run_module_local_ps ;;
+            14) run_module_local_net ;;
+            15) run_module_local_users ;;
+            16) break ;;
+            *) log_error "Opsi tidak valid. Silakan pilih 1-16"; sleep 2 ;;
         esac
-        if [[ "$pilihan" -ne 13 ]]; then echo ""; read -p "Tekan Enter untuk melanjutkan..."; fi
+        if [[ "$pilihan" -ne 16 ]]; then echo ""; read -p "Tekan Enter untuk melanjutkan..."; fi
     done
 }
 
@@ -877,7 +803,22 @@ main() {
     log_debug "Mode Debug Aktif."
     if [[ $NON_INTERACTIVE -eq 1 ]]; then
         log_info "Menjalankan KINFO v$VERSION (Mode Non-Interaktif)"
-        if [[ -z "$MODULE" || -z "$TARGET" ]]; then log_error "Mode non-interaktif membutuhkan --module dan --target"; show_usage; exit 1; fi
+        if [[ -z "$MODULE" ]]; then log_error "Mode non-interaktif membutuhkan --module"; show_usage; exit 1; fi
+        
+        # Cek apakah modul membutuhkan target
+        case "$MODULE" in
+            localps|localnet|localusers)
+                # Modul lokal ini tidak membutuhkan --target
+                ;;
+            ftpclient)
+                log_error "Modul 'ftpclient' (12) hanya tersedia dalam mode Interaktif."; exit 1
+                ;;
+            *)
+                # Semua modul lain membutuhkan --target
+                if [[ -z "$TARGET" ]]; then log_error "Modul '$MODULE' membutuhkan --target <target>"; show_usage; exit 1; fi
+                ;;
+        esac
+
         if [[ -z "$OUTPUT_FILE" ]]; then
             if [[ "$OUTPUT_FORMAT" == "json" ]]; then OUTPUT_FILE="/dev/stdout"; else OUTPUT_FILE="kinfo_${MODULE}_$(date +%s).txt"; fi
         fi
@@ -896,7 +837,9 @@ main() {
             envscan) run_module_envscan ;;
             wpcheck) run_module_wpcheck ;;
             zoneh) run_module_zoneh ;;
-            ftpclient) log_error "Modul 'ftpclient' (12) hanya tersedia dalam mode Interaktif."; exit 1 ;;
+            localps) run_module_local_ps ;;
+            localnet) run_module_local_net ;;
+            localusers) run_module_local_users ;;
             *) log_error "Modul tidak dikenal: '$MODULE'"; show_usage; exit 1 ;;
         esac
         log_info "Eksekusi selesai."
