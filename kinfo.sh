@@ -1,16 +1,21 @@
 #!/bin/bash
 
 # KINFO - Incident Response & Pentest Toolkit
-# Version: 2.6 (Refactored, Local IR Modules)
+# Version: 2.7 (Refactored, Split Menus, Local IR+, Output Dir)
 # Original: https://jejakintel.t.me/
 # Refactor: Gemini (dengan paralelisasi, mode non-interaktif, JSON, logging)
 # Updated: 5 November 2025
 
 # --- KONFIGURASI GLOBAL ---
-VERSION="2.6"
+VERSION="2.7"
 KINFO_USER_AGENT="Mozilla/5.0 KINFO/$VERSION"
 DORK_UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"
+
+# --- LOKASI SCRIPT & FOLDER OUTPUT ---
+# Menentukan direktori tempat script ini berada
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+# *** BARU v2.7: Menentukan folder output kustom ***
+OUTPUT_DIR="$SCRIPT_DIR/outputkinfo"
 
 # --- WARNA ---
 RED='\033[0;31m'
@@ -77,7 +82,7 @@ check_dependencies() {
             missing_deps=1
         fi
     done
-    for cmd in jq nslookup nc ftp whois ps netstat ss; do
+    for cmd in jq nslookup nc ftp whois ps netstat ss last lastlog who; do
         if ! command -v "$cmd" &>/dev/null; then
             log_warn "Dependensi opsional tidak ditemukan: $cmd. Beberapa fitur mungkin tidak berfungsi."
         fi
@@ -87,6 +92,14 @@ check_dependencies() {
         exit 1
     fi
     log_debug "Semua dependensi wajib ditemukan."
+    
+    # *** BARU v2.7: Buat folder output jika belum ada ***
+    if ! mkdir -p "$OUTPUT_DIR"; then
+        log_error "Gagal membuat folder output di: $OUTPUT_DIR"
+        log_error "Periksa izin (permissions) folder."
+        exit 1
+    fi
+    log_debug "Folder output dipastikan ada di: $OUTPUT_DIR"
 }
 
 # --- BANNER & BANTUAN (USAGE) ---
@@ -107,6 +120,7 @@ EOF
     echo "  KINFO - Incident Response Toolkit      "
     echo "  Version: $VERSION | Update: 5 November 2025 "
     echo "  Contact: https://jejakintel.t.me/      "
+    echo "  Output disimpan di: $OUTPUT_DIR"
     echo "========================================="
     echo ""
 }
@@ -121,41 +135,38 @@ show_usage() {
     echo "MODE NON-INTERAKTIF (CLI):"
     echo "  Dibutuhkan: --module <nama_modul>"
     echo ""
-    echo "MODULES (REMOTE):"
-    echo "  subdomain       : [1] Enhanced Subdomain Finder (membutuhkan --target)"
-    echo "  direnum         : [2] Directory/File Enumeration (membutuhkan --target)"
-    echo "  ftpbrute        : [3] FTP Bruteforce (membutuhkan --target)"
-    echo "  judi            : [4] Judi Online Finder (membutuhkan --target)"
-    echo "  reverseip       : [5] Reverse IP Lookup (membutuhkan --target)"
-    echo "  extract         : [6] Extract Domain & Auto Add HTTPS (membutuhkan --target)"
-    echo "  webscan         : [7] Webshell Finder [DirScan] (membutuhkan --target)"
-    echo "  envscan         : [9] ENV & Debug Method Scanner (membutuhkan --target)"
-    echo "  wpcheck         : [10] WordPress Registration Finder (membutuhkan --target)"
-    echo "  zoneh           : [11] Grab Domain from Zone-H (membutuhkan --target)"
+    echo "MODULES (REMOTE) - (Membutuhkan --target <domain/ip/url>)"
+    echo "  subdomain       : [R1] Enhanced Subdomain Finder"
+    echo "  direnum         : [R2] Directory/File Enumeration"
+    echo "  ftpbrute        : [R3] FTP Bruteforce"
+    echo "  judi            : [R4] Judi Online Finder"
+    echo "  reverseip       : [R5] Reverse IP Lookup"
+    echo "  extract         : [R6] Extract Domain & Auto Add HTTPS"
+    echo "  webscan         : [R7] Webshell Finder [DirScan]"
+    echo "  envscan         : [R8] ENV & Debug Method Scanner"
+    echo "  wpcheck         : [R9] WordPress Registration Finder"
+    echo "  zoneh           : [R10] Grab Domain from Zone-H"
     echo ""
-    echo "MODULES (LOKAL):"
-    echo "  filescan        : [8] Webshell Finder [File Enumeration] (membutuhkan --target <path>)"
-    echo "  ftpclient       : [12] Mini Shell FTP Client (Hanya Interaktif)"
-    echo "  localps         : [13] Pengecekan Proses Mencurigakan (Lokal)"
-    echo "  localnet        : [14] Pengecekan Koneksi Jaringan (Lokal)"
-    echo "  localusers      : [15] Pengecekan User & Cron (Lokal)"
+    echo "MODULES (LOKAL) - (Memindai mesin ini)"
+    echo "  filescan        : [L1] Webshell Finder [File Enumeration] (membutuhkan --target <path>)"
+    echo "  localps         : [L2] Pengecekan Proses Mencurigakan (Lokal)"
+    echo "  localnet        : [L3] Pengecekan Koneksi Jaringan (Lokal)"
+    echo "  localusers      : [L4] Pengecekan User & Login (Lokal)"
+    echo "  localcron       : [L5] Pengecekan Cron Mendalam (Lokal)"
     echo ""
     echo "OPTIONS:"
     echo "  -t, --target <str>        : Target (domain, URL, IP, atau path lokal untuk 'filescan')"
     echo "  -w, --wordlist <file>     : Path ke wordlist (default: $SCRIPT_DIR/wordlist.txt)"
-    echo "  --ftp-list <file>         : Path ke wordlist FTP (default: $SCRIPT_DIR/ftpbrute.txt)"
-    echo "  --judi-list <file>        : Path ke wordlist Judi (default: $SCRIPT_DIR/judilist.txt)"
-    echo "  -o, --output-file <file>  : Simpan output ke file"
+    echo "  -o, --output-file <file>  : Simpan output ke file (Nama saja, akan ditempatkan di $OUTPUT_DIR)"
     echo "  -f, --output-format <fmt> : Format output: text (default), json"
     echo "  -p, --parallel <num>      : Jumlah proses paralel (default: 20)"
-    echo "  -r, --rate-limit <sec>    : Jeda (detik) antar request (default: 0)"
     echo "  -l, --logfile <file>      : Path ke file log"
     echo "  -d, --debug               : Aktifkan mode debug (verbose)"
     echo "  -h, --help                : Tampilkan pesan bantuan ini"
     echo ""
 }
 
-# --- [MODUL 1] ENHANCED SUBDOMAIN FINDER ---
+# --- [R1] ENHANCED SUBDOMAIN FINDER ---
 resolve_subdomain() { local S="$1"; if nslookup "$S" >/dev/null 2>&1; then echo "$S"; fi; }
 export -f resolve_subdomain
 check_subdomain_http() {
@@ -222,7 +233,7 @@ EOF
     log_info "Pencarian subdomain selesai."
 }
 
-# --- [MODUL 2] DIRECTORY/FILE ENUMERATION ---
+# --- [R2] DIRECTORY/FILE ENUMERATION ---
 check_url_path() {
     local BU="$1"; local P="$2"; local RL="$3"; local UA="$4"; local RF="$5"
     local FU="${BU}/${P}"; sleep "$RL"
@@ -263,7 +274,7 @@ EOF
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
-# --- [MODUL 3] FTP BRUTEFORCE ---
+# --- [R3] FTP BRUTEFORCE ---
 check_ftp_cred() {
     local H="$1"; local P="$2"; local U="$3"; local PW="$4"; local RF="$5"
     local LR; LR=$(echo -e "user $U $PW\nquit" | ftp -n "$H" "$P" 2>&1)
@@ -296,7 +307,7 @@ run_module_ftpbrute() {
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
-# --- [MODUL 4] JUDI ONLINE FINDER ---
+# --- [R4] JUDI ONLINE FINDER ---
 check_judi_homepage() {
     local U="$1"; local KLF="$2"; local RF="$3"
     local C; C=$(curl -sL "$U" --connect-timeout 5 --max-time 10 -H "User-Agent: $KINFO_USER_AGENT" 2>/dev/null)
@@ -365,7 +376,7 @@ EOF
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
-# --- [MODUL 5] REVERSE IP LOOKUP ---
+# --- [R5] REVERSE IP LOOKUP ---
 run_module_reverseip() {
     log_info "Memulai Reverse IP Lookup..."
     if [[ -z "$TARGET" ]]; then log_error "Target IP Address diperlukan."; return 1; fi
@@ -402,7 +413,7 @@ EOF
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
-# --- [MODUL 6] EXTRACT DOMAIN & CHECK HEADERS ---
+# --- [R6] EXTRACT DOMAIN & CHECK HEADERS ---
 run_module_extract() {
     log_info "Memulai Extract Domain & Auto Add HTTPS..."
     if [[ -z "$TARGET" ]]; then log_error "Target URL diperlukan."; return 1; fi
@@ -435,7 +446,7 @@ EOF
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
-# --- [MODUL 7] WEBSHELL FINDER [DIRSCAN] ---
+# --- [R7] WEBSHELL FINDER [DIRSCAN] ---
 run_module_webscan() {
     log_info "Memulai Webshell Finder [Directory Scan]..."
     if [[ -z "$TARGET" ]]; then log_error "Target URL diperlukan."; return 1; fi
@@ -465,7 +476,104 @@ EOF
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
-# --- [MODUL 8] WEBSHELL FINDER [FILE ENUM] ---
+# --- [R8] ENV & DEBUG METHOD SCANNER ---
+run_module_envscan() {
+    log_info "Memulai ENV & Debug Method Scanner..."
+    if [[ -z "$TARGET" ]]; then log_error "Target URL diperlukan."; return 1; fi
+    if [[ ! "$TARGET" =~ ^https?:// ]]; then TARGET="https://$TARGET"; fi
+    TARGET=$(echo "$TARGET" | sed 's:/*$::')
+    local EF=(".env" ".env.backup" ".env.local" ".env.example" "config/.env" "configuration.php" "settings.php" "database.php" "db.php" "wp-config.php" "config.php" "config/database.yml" ".htpasswd" ".htaccess" "web.config" "debug.php" "phpinfo.php" "info.php" "test.php" "status" "health" "metrics" "actuator" "healthz" "readyz" "swagger" "api-docs" "v1/swagger" "docs" "robots.txt" "sitemap.xml" "server-status" "server-info" "composer.json" "package.json" "Dockerfile" "docker-compose.yml" "requirements.txt" "backup.sql" "db.sql" "database.sql" "data.sql" "dump.sql" "site.sql" "backup.tar.gz" "backup.zip" "backup.rar" "site.tar.gz" "site.zip" "database.zip" "database.tar.gz" "db.zip" "db.tar.gz" "www.zip" "www.tar.gz" "backup/backup.sql" "backup/db.sql" "backup/dump.sql" "backup/backup.zip" "backup/site.zip" "backup/db.zip" "backup/backup.tar.gz" "backups/backup.sql" "backups/db.sql" "backups/dump.sql" "backups/backup.zip" "backups/site.zip" "backups/db.zip" "backups/backup.tar.gz" "sql/backup.sql" "sql/db.sql" "sql/dump.sql" "sql/database.sql" "sql/backup.zip" "sql/db.zip" "files/backup.sql" "files/db.sql" "files/dump.sql" "files/backup.zip" "files/site.zip" "db/dump.sql" "db/db.sql" "db/database.sql" "db/backup.zip" "db/db.zip" "uploads/backup.sql" "uploads/db.sql" "uploads/dump.sql" "uploads/backup.zip" "uploads/site.zip" "_backup/backup.sql" "_backup/db.sql" "_backup/dump.sql" "_backup/backup.zip" "_backup/site.zip" "_db/dump.sql" "_db/db.sql")
+    local total=${#EF[@]}
+    log_info "[*] Memulai pemindaian pada $TARGET ($total path internal, Paralel: $PARALLEL_JOBS)..."
+    local TJL; TJL=$(add_temp_file); local TPL; TPL=$(add_temp_file); printf "%s\n" "${EF[@]}" > "$TPL"
+    export TARGET; export RATE_LIMIT; export KINFO_USER_AGENT; export TJL
+    cat "$TPL" | xargs -P "$PARALLEL_JOBS" -I {} \
+        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$TJL\""
+    local fc; fc=$(wc -l < "$TJL"); log_info "[+] Pemindaian selesai. Ditemukan $fc item."
+    if [[ "$fc" -eq 0 ]]; then log_warn "Tidak ada item yang ditemukan."; return 0; fi
+    local OD
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then OD=$(jq -s '.' "$TJL"); else
+        OD=$(cat <<EOF
+ENV & Debug Scan Results
+Target: $TARGET
+Scan Time: $(date)
+==================================
+$(cat "$TJL" | jq -r '"[\(.status)] \(.url) (Size: \(.size))"' | sort)
+EOF
+)
+    fi
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
+    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+}
+
+# --- [R9] WORDPRESS REGISTRATION FINDER ---
+run_module_wpcheck() {
+    log_info "Memulai WordPress Registration Finder..."
+    if [[ -z "$TARGET" ]]; then log_error "Target domain diperlukan."; return 1; fi
+    local ST; ST=$(echo "$TARGET"|sed -E 's~^https?://~~'|sed -E 's/^www\.//'|cut -d'/' -f1)
+    local WU="https://$ST"; log_info "[*] Memeriksa situs WordPress di $WU"
+    local R; R=$(curl -sIL "$WU" --connect-timeout 3 --max-time 5 -H "User-Agent: $KINFO_USER_AGENT" 2>/dev/null)
+    if ! echo "$R" | grep -qi "wp-content\|wordpress"; then log_warn "[!] Ini tampaknya bukan situs WordPress."; fi
+    local RP=("wp-login.php?action=register" "wp-signup.php" "register" "signup" "create-account" "registration")
+    local TJL; TJL=$(add_temp_file); local TPL; TPL=$(add_temp_file); printf "%s\n" "${RP[@]}" > "$TPL"
+    export TARGET="$WU"; export RATE_LIMIT=0; export KINFO_USER_AGENT; export TJL
+    cat "$TPL" | xargs -P "$PARALLEL_JOBS" -I {} \
+        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$TJL\""
+    local FU=""; local FS=""
+    while IFS= read -r L; do
+        if [[ $(echo "$L" | jq -r '.status') == "200" ]]; then FU=$(echo "$L" | jq -r '.url'); FS="200"; break; fi
+    done < "$TJL"
+    local RD=""
+    if [[ -n "$FU" ]]; then log_result "[+] Ditemukan halaman registrasi potensial: $FU"; RD="Halaman registrasi ditemukan di $FU";
+    else log_warn "[-] Tidak ada halaman registrasi (200 OK) yang ditemukan."; RD="Tidak ada halaman registrasi (200 OK) yang ditemukan."; fi
+    local OD
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        OD=$(jq -n --arg domain "$ST" --arg found_url "$FU" --arg details "$RD" \
+            '{"domain": $domain, "registration_page_found": (if $found_url != "" then true else false end), "url": $found_url, "details": $details}')
+    else
+        OD=$(cat <<EOF
+WordPress Registration Finder Results
+Target: $ST
+Scan Time: $(date)
+==================================
+Status: $RD
+EOF
+)
+    fi
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
+    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+}
+
+# --- [R10] GRAB DOMAIN DARI ZONE-H ---
+run_module_zoneh() {
+    log_info "Memulai Grab Domain dari Zone-H..."
+    if [[ -z "$TARGET" ]]; then log_error "Nama Notifier diperlukan."; return 1; fi
+    local N="$TARGET"; local ZU="http://www.zone-h.org/archive/notifier=$N"
+    log_info "[*] Mengambil data dari Zone-H untuk notifier: $N"
+    local R; R=$(curl -s "$ZU" --connect-timeout 10 -H "User-Agent: $KINFO_USER_AGENT" 2>/dev/null)
+    if [[ -z "$R" ]]; then log_error "Gagal mengambil data dari Zone-H"; return 1; fi
+    local TD; TD=$(add_temp_file); echo "$R" | grep -oP '(?<=<td>)[a-zA-Z0-9\-\.]+(?=</td>)' | grep -v "Domain" | sort -u > "$TD"
+    local dc; dc=$(wc -l < "$TD"); if [[ $dc -eq 0 ]]; then log_warn "Tidak ada domain ditemukan."; return 0; fi
+    log_info "[+] Ditemukan $dc domain."
+    local OD
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        OD=$(jq -n --arg notifier "$N" --argjson domains "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$TD")" '{"notifier": $notifier, "domains": $domains}')
+    else
+        OD=$(cat <<EOF
+Zone-H Grabber Results
+Notifier: $N
+Scan Time: $(date)
+======================
+$(cat "$TD")
+EOF
+)
+    fi
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
+    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+}
+
+
+# --- [L1] WEBSHELL FINDER [FILE ENUM] ---
 check_file_suspicious() {
     local F="$1"; local KR="$2"; local RF="$3"
     local FS; FS=$(stat -c%s "$F" 2>/dev/null || echo 0)
@@ -507,68 +615,27 @@ EOF
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
-# --- [MODUL 9] ENV & DEBUG METHOD SCANNER ---
-run_module_envscan() {
-    log_info "Memulai ENV & Debug Method Scanner..."
-    if [[ -z "$TARGET" ]]; then log_error "Target URL diperlukan."; return 1; fi
-    if [[ ! "$TARGET" =~ ^https?:// ]]; then TARGET="https://$TARGET"; fi
-    TARGET=$(echo "$TARGET" | sed 's:/*$::')
-    # v2.5: Daftar diperluas dengan .sql, .backup, dan subfolder umum
-    local EF=(".env" ".env.backup" ".env.local" ".env.example" "config/.env" "configuration.php" "settings.php" "database.php" "db.php" "wp-config.php" "config.php" "config/database.yml" ".htpasswd" ".htaccess" "web.config" "debug.php" "phpinfo.php" "info.php" "test.php" "status" "health" "metrics" "actuator" "healthz" "readyz" "swagger" "api-docs" "v1/swagger" "docs" "robots.txt" "sitemap.xml" "server-status" "server-info" "composer.json" "package.json" "Dockerfile" "docker-compose.yml" "requirements.txt" "backup.sql" "db.sql" "database.sql" "data.sql" "dump.sql" "site.sql" "backup.tar.gz" "backup.zip" "backup.rar" "site.tar.gz" "site.zip" "database.zip" "database.tar.gz" "db.zip" "db.tar.gz" "www.zip" "www.tar.gz" "backup/backup.sql" "backup/db.sql" "backup/dump.sql" "backup/backup.zip" "backup/site.zip" "backup/db.zip" "backup/backup.tar.gz" "backups/backup.sql" "backups/db.sql" "backups/dump.sql" "backups/backup.zip" "backups/site.zip" "backups/db.zip" "backups/backup.tar.gz" "sql/backup.sql" "sql/db.sql" "sql/dump.sql" "sql/database.sql" "sql/backup.zip" "sql/db.zip" "files/backup.sql" "files/db.sql" "files/dump.sql" "files/backup.zip" "files/site.zip" "db/dump.sql" "db/db.sql" "db/database.sql" "db/backup.zip" "db/db.zip" "uploads/backup.sql" "uploads/db.sql" "uploads/dump.sql" "uploads/backup.zip" "uploads/site.zip" "_backup/backup.sql" "_backup/db.sql" "_backup/dump.sql" "_backup/backup.zip" "_backup/site.zip" "_db/dump.sql" "_db/db.sql")
-    local total=${#EF[@]}
-    log_info "[*] Memulai pemindaian pada $TARGET ($total path internal, Paralel: $PARALLEL_JOBS)..."
-    local TJL; TJL=$(add_temp_file); local TPL; TPL=$(add_temp_file); printf "%s\n" "${EF[@]}" > "$TPL"
-    export TARGET; export RATE_LIMIT; export KINFO_USER_AGENT; export TJL
-    cat "$TPL" | xargs -P "$PARALLEL_JOBS" -I {} \
-        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$TJL\""
-    local fc; fc=$(wc -l < "$TJL"); log_info "[+] Pemindaian selesai. Ditemukan $fc item."
-    if [[ "$fc" -eq 0 ]]; then log_warn "Tidak ada item yang ditemukan."; return 0; fi
-    local OD
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then OD=$(jq -s '.' "$TJL"); else
-        OD=$(cat <<EOF
-ENV & Debug Scan Results
-Target: $TARGET
-Scan Time: $(date)
-==================================
-$(cat "$TJL" | jq -r '"[\(.status)] \(.url) (Size: \(.size))"' | sort)
-EOF
-)
-    fi
-    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
-    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
-}
-
-# --- [MODUL 10] WORDPRESS REGISTRATION FINDER ---
-run_module_wpcheck() {
-    log_info "Memulai WordPress Registration Finder..."
-    if [[ -z "$TARGET" ]]; then log_error "Target domain diperlukan."; return 1; fi
-    local ST; ST=$(echo "$TARGET"|sed -E 's~^https?://~~'|sed -E 's/^www\.//'|cut -d'/' -f1)
-    local WU="https://$ST"; log_info "[*] Memeriksa situs WordPress di $WU"
-    local R; R=$(curl -sIL "$WU" --connect-timeout 3 --max-time 5 -H "User-Agent: $KINFO_USER_AGENT" 2>/dev/null)
-    if ! echo "$R" | grep -qi "wp-content\|wordpress"; then log_warn "[!] Ini tampaknya bukan situs WordPress."; fi
-    local RP=("wp-login.php?action=register" "wp-signup.php" "register" "signup" "create-account" "registration")
-    local TJL; TJL=$(add_temp_file); local TPL; TPL=$(add_temp_file); printf "%s\n" "${RP[@]}" > "$TPL"
-    export TARGET="$WU"; export RATE_LIMIT=0; export KINFO_USER_AGENT; export TJL
-    cat "$TPL" | xargs -P "$PARALLEL_JOBS" -I {} \
-        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$TJL\""
-    local FU=""; local FS=""
-    while IFS= read -r L; do
-        if [[ $(echo "$L" | jq -r '.status') == "200" ]]; then FU=$(echo "$L" | jq -r '.url'); FS="200"; break; fi
-    done < "$TJL"
-    local RD=""
-    if [[ -n "$FU" ]]; then log_result "[+] Ditemukan halaman registrasi potensial: $FU"; RD="Halaman registrasi ditemukan di $FU";
-    else log_warn "[-] Tidak ada halaman registrasi (200 OK) yang ditemukan."; RD="Tidak ada halaman registrasi (200 OK) yang ditemukan."; fi
+# --- [L2] CEK PROSES LOKAL ---
+run_module_local_ps() {
+    log_info "Memulai Pengecekan Proses Mencurigakan (Lokal)..."
+    if ! command -v ps &>/dev/null; then log_error "Perintah 'ps' tidak ditemukan."; return 1; fi
+    local WU="www-data|apache|nginx|httpd|nobody"
+    log_info "Mencari proses yang berjalan sebagai: $WU"
+    local TP; TP=$(add_temp_file)
+    ps aux | grep -E "$WU" | grep -v "grep" > "$TP"
+    local fc; fc=$(wc -l < "$TP"); log_info "[+] Ditemukan $fc proses yang cocok."
     local OD
     if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        OD=$(jq -n --arg domain "$ST" --arg found_url "$FU" --arg details "$RD" \
-            '{"domain": $domain, "registration_page_found": (if $found_url != "" then true else false end), "url": $found_url, "details": $details}')
+        OD=$(jq -n --argjson processes "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$TP")" \
+            '{"module": "local_processes", "web_users_checked": $WU, "processes": $processes}')
     else
         OD=$(cat <<EOF
-WordPress Registration Finder Results
-Target: $ST
-Scan Time: $(date)
+Pengecekan Proses Lokal (Web Users)
+Waktu: $(date)
+User dicek: $WU
 ==================================
-Status: $RD
+USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+$(cat "$TP")
 EOF
 )
     fi
@@ -576,27 +643,29 @@ EOF
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
-# --- [MODUL 11] GRAB DOMAIN DARI ZONE-H ---
-run_module_zoneh() {
-    log_info "Memulai Grab Domain dari Zone-H..."
-    if [[ -z "$TARGET" ]]; then log_error "Nama Notifier diperlukan."; return 1; fi
-    local N="$TARGET"; local ZU="http://www.zone-h.org/archive/notifier=$N"
-    log_info "[*] Mengambil data dari Zone-H untuk notifier: $N"
-    local R; R=$(curl -s "$ZU" --connect-timeout 10 -H "User-Agent: $KINFO_USER_AGENT" 2>/dev/null)
-    if [[ -z "$R" ]]; then log_error "Gagal mengambil data dari Zone-H"; return 1; fi
-    local TD; TD=$(add_temp_file); echo "$R" | grep -oP '(?<=<td>)[a-zA-Z0-9\-\.]+(?=</td>)' | grep -v "Domain" | sort -u > "$TD"
-    local dc; dc=$(wc -l < "$TD"); if [[ $dc -eq 0 ]]; then log_warn "Tidak ada domain ditemukan."; return 0; fi
-    log_info "[+] Ditemukan $dc domain."
+# --- [L3] CEK JARINGAN LOKAL ---
+run_module_local_net() {
+    log_info "Memulai Pengecekan Koneksi Jaringan (Lokal)..."
+    local NC=""
+    if command -v ss &>/dev/null; then NC="ss -antp";
+    elif command -v netstat &>/dev/null; then NC="netstat -antp";
+    else log_error "Perintah 'netstat' atau 'ss' tidak ditemukan."; return 1; fi
+    log_info "Menjalankan '$NC'. Mencari koneksi ESTABLISHED atau LISTEN..."
+    local TN; TN=$(add_temp_file)
+    (echo "HEADER: Proto Recv-Q Send-Q Local Address Foreign Address State PID/Program name"; \
+     sudo $NC 2>/dev/null | grep -E "(ESTABLISHED|LISTEN)") > "$TN"
+    local fc; fc=$(( $(wc -l < "$TN") - 1 )); log_info "[+] Ditemukan $fc koneksi menarik."
     local OD
     if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        OD=$(jq -n --arg notifier "$N" --argjson domains "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$TD")" '{"notifier": $notifier, "domains": $domains}')
+        OD=$(jq -n --arg command_used "$NC" --argjson connections "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$TN")" \
+            '{"module": "local_network", "command": $command_used, "connections": $connections}')
     else
         OD=$(cat <<EOF
-Zone-H Grabber Results
-Notifier: $N
-Scan Time: $(date)
-======================
-$(cat "$TD")
+Pengecekan Jaringan Lokal (ESTABLISHED & LISTEN)
+Waktu: $(date)
+Perintah: $NC (Mungkin perlu sudo untuk melihat nama program)
+==================================
+$(cat "$TN")
 EOF
 )
     fi
@@ -604,7 +673,75 @@ EOF
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
-# --- [MODUL 12] MINI SHELL FTP CLIENT (INTERAKTIF SAJA) ---
+# --- *** BARU v2.7 *** [L4] CEK USER & LOGIN LOKAL ---
+run_module_local_users() {
+    log_info "Memulai Pengecekan User & Login (Lokal)..."
+    local TI; TI=$(add_temp_file)
+    
+    echo "--- User Yang Sedang Login (who) ---" >> "$TI"
+    (who -u 2>/dev/null || echo "Perintah 'who' tidak tersedia.") >> "$TI"
+    
+    echo "" >> "$TI"; echo "--- Histori Login (last - 20 entri) ---" >> "$TI"
+    (last -n 20 2>/dev/null || echo "Perintah 'last' tidak tersedia.") >> "$TI"
+
+    echo "" >> "$TI"; echo "--- Terakhir Login (lastlog - 10 terbaru) ---" >> "$TI"
+    (lastlog 2>/dev/null | head -n 11 || echo "Perintah 'lastlog' tidak tersedia.") >> "$TI"
+
+    echo "" >> "$TI"; echo "--- Modifikasi File User (Baru/Diubah) ---" >> "$TI"
+    (ls -l /etc/passwd /etc/shadow /etc/group 2>/dev/null || echo "Tidak dapat membaca file user.") >> "$TI"
+
+    log_info "[+] Pengecekan user dan login selesai."
+    local OD
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        OD=$(jq -n --arg info "$(cat "$TI")" '{"module": "local_users_login", "info": $info}')
+    else
+        OD=$(cat <<EOF
+Pengecekan User & Login Lokal
+Waktu: $(date)
+==================================
+$(cat "$TI")
+EOF
+)
+    fi
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
+    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+}
+
+# --- *** BARU v2.7 *** [L5] CEK CRON MENDALAM LOKAL ---
+run_module_local_cron() {
+    log_info "Memulai Pengecekan Cron Mendalam (Lokal)..."
+    local TI; TI=$(add_temp_file)
+
+    echo "--- Crontab (root) ---" >> "$TI"
+    (sudo crontab -l -u root 2>/dev/null || echo "Tidak ada crontab untuk root.") >> "$TI"
+    
+    echo "" >> "$TI"; echo "--- Crontab (current user: $USER) ---" >> "$TI"
+    (crontab -l 2>/dev/null || echo "Tidak ada crontab untuk $USER.") >> "$TI"
+
+    echo "" >> "$TI"; echo "--- Crontab User Lain (/var/spool/cron/) ---" >> "$TI"
+    (sudo ls -l /var/spool/cron/crontabs/ 2>/dev/null || sudo ls -l /var/spool/cron/ 2>/dev/null || echo "Tidak ada/bisa membaca file cron user lain.") >> "$TI"
+    
+    echo "" >> "$TI"; echo "--- Cron Drop-ins (/etc/cron.d, etc) ---" >> "$TI"
+    (sudo ls -l /etc/cron.d/ /etc/cron.hourly/ /etc/cron.daily/ /etc/cron.weekly/ /etc/cron.monthly/ 2>/dev/null || echo "Tidak dapat membaca /etc/cron* direktori.") >> "$TI"
+
+    log_info "[+] Pengecekan cron selesai."
+    local OD
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        OD=$(jq -n --arg info "$(cat "$TI")" '{"module": "local_cron", "info": $info}')
+    else
+        OD=$(cat <<EOF
+Pengecekan Cron Mendalam Lokal
+Waktu: $(date)
+==================================
+$(cat "$TI")
+EOF
+)
+    fi
+    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
+    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+}
+
+# --- [L6] MINI SHELL FTP CLIENT (INTERAKTIF SAJA) ---
 mini_ftp_client() {
     log_info "Memulai Mini Shell FTP Client..."
     local H P U PW; read -p "Enter FTP host: " H; read -p "Enter FTP port (default 21): " P
@@ -622,138 +759,30 @@ EOF
     log_info "Sesi FTP ditutup."
 }
 
-# --- *** BARU v2.6 *** [MODUL 13] CEK PROSES LOKAL ---
-run_module_local_ps() {
-    log_info "Memulai Pengecekan Proses Mencurigakan (Lokal)..."
-    if ! command -v ps &>/dev/null; then log_error "Perintah 'ps' tidak ditemukan."; return 1; fi
-    
-    # User web server yang umum
-    local web_users="www-data|apache|nginx|httpd|nobody"
-    log_info "Mencari proses yang berjalan sebagai: $web_users"
-    
-    local temp_ps; temp_ps=$(add_temp_file)
-    ps aux | grep -E "$web_users" | grep -v "grep" > "$temp_ps"
-    
-    local fc; fc=$(wc -l < "$temp_ps")
-    log_info "[+] Ditemukan $fc proses yang cocok."
-    
-    local OD
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        OD=$(jq -n --argjson processes "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$temp_ps")" \
-            '{"module": "local_processes", "web_users_checked": $web_users, "processes": $processes}')
-    else
-        OD=$(cat <<EOF
-Pengecekan Proses Lokal (Web Users)
-Waktu: $(date)
-User dicek: $web_users
-==================================
-USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
-$(cat "$temp_ps")
-EOF
-)
-    fi
-    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
-    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
-}
-
-# --- *** BARU v2.6 *** [MODUL 14] CEK JARINGAN LOKAL ---
-run_module_local_net() {
-    log_info "Memulai Pengecekan Koneksi Jaringan (Lokal)..."
-    local net_cmd=""
-    if command -v ss &>/dev/null; then net_cmd="ss -antp";
-    elif command -v netstat &>/dev/null; then net_cmd="netstat -antp";
-    else log_error "Perintah 'netstat' atau 'ss' tidak ditemukan."; return 1; fi
-
-    log_info "Menjalankan '$net_cmd'. Mencari koneksi ESTABLISHED atau LISTEN..."
-    
-    local temp_net; temp_net=$(add_temp_file)
-    (echo "HEADER: Proto Recv-Q Send-Q Local Address Foreign Address State PID/Program name"; \
-     sudo $net_cmd 2>/dev/null | grep -E "(ESTABLISHED|LISTEN)") > "$temp_net"
-    
-    local fc; fc=$(( $(wc -l < "$temp_net") - 1 ))
-    log_info "[+] Ditemukan $fc koneksi menarik."
-
-    local OD
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        OD=$(jq -n --arg command_used "$net_cmd" --argjson connections "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$temp_net")" \
-            '{"module": "local_network", "command": $command_used, "connections": $connections}')
-    else
-        OD=$(cat <<EOF
-Pengecekan Jaringan Lokal (ESTABLISHED & LISTEN)
-Waktu: $(date)
-Perintah: $net_cmd (Mungkin perlu sudo untuk melihat nama program)
-==================================
-$(cat "$temp_net")
-EOF
-)
-    fi
-    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
-    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
-}
-
-# --- *** BARU v2.6 *** [MODUL 15] CEK USER & CRON LOKAL ---
-run_module_local_users() {
-    log_info "Memulai Pengecekan User & Cron (Lokal)..."
-    
-    local temp_info; temp_info=$(add_temp_file)
-    
-    echo "--- /etc/passwd (User uid >= 1000 atau uid = 0) ---" >> "$temp_info"
-    awk -F: '($3 >= 1000 || $3 == 0) {print}' /etc/passwd >> "$temp_info"
-    
-    echo "" >> "$temp_info"
-    echo "--- Crontab (root) ---" >> "$temp_info"
-    (crontab -l -u root 2>/dev/null || echo "Tidak ada crontab untuk root") >> "$temp_info"
-
-    echo "" >> "$temp_info"
-    echo "--- Crontab (current user: $USER) ---" >> "$temp_info"
-    (crontab -l 2>/dev/null || echo "Tidak ada crontab untuk $USER") >> "$temp_info"
-
-    log_info "[+] Pengecekan user dan cron selesai."
-    
-    local OD
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        OD=$(jq -n --arg info "$(cat "$temp_info")" '{"module": "local_users_cron", "info": $info}')
-    else
-        OD=$(cat <<EOF
-Pengecekan User & Cron Lokal
-Waktu: $(date)
-==================================
-$(cat "$temp_info")
-EOF
-)
-    fi
-    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
-    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
-}
-
-
-# --- MODE INTERAKTIF (FUNGSI ASLI) ---
-main_interactive() {
-    PARALLEL_JOBS=20; RATE_LIMIT=0; OUTPUT_FORMAT="text"
-    WORDLIST="$SCRIPT_DIR/wordlist.txt"
-    FTP_LIST="$SCRIPT_DIR/ftpbrute.txt"
-    JUDI_LIST="$SCRIPT_DIR/judilist.txt"
+# --- *** DIPERBARUI v2.7 *** MODE INTERAKTIF (MENU TERPISAH) ---
+menu_remote() {
     while true; do
         show_banner
-        echo "┌──(${USER})-[KINFO]"; echo "└─$ INCIDENT RESPONSE MENU:"; echo ""
-        echo "--- REMOTE SCANNER ---"
-        echo " [1] Enhanced Subdomain Finder"; echo " [2] Directory/File Enumeration"
-        echo " [3] FTP Bruteforce (FTP/FTPS)"; echo " [4] Judi Online Finder"
-        echo " [5] Reverse IP Lookup"; echo " [6] Extract Domain [Auto Add HTTPS]"
-        echo " [7] Webshell Finder [DirScan]"; echo " [9] ENV & Debug Method Scanner"
-        echo " [10] WordPress Registration Finder"; echo " [11] Grab Domain from Zone-H"
+        echo "┌──(${USER})-[KINFO]"
+        echo "└─$ MODE: REMOTE SCANNER"
         echo ""
-        echo "--- LOCAL IR ---"
-        echo " [8] Webshell Finder [File Enumeration]"
-        echo " [12] Mini Shell FTP Client"
-        echo " [13] Pengecekan Proses Mencurigakan (Lokal)"
-        echo " [14] Pengecekan Koneksi Jaringan (Lokal)"
-        echo " [15] Pengecekan User & Cron (Lokal)"
-        echo " [16] Exit"
+        echo " [1] Enhanced Subdomain Finder"
+        echo " [2] Directory/File Enumeration"
+        echo " [3] FTP Bruteforce"
+        echo " [4] Judi Online Finder"
+        echo " [5] Reverse IP Lookup"
+        echo " [6] Extract Domain [Auto Add HTTPS]"
+        echo " [7] Webshell Finder [DirScan]"
+        echo " [8] ENV & Debug Method Scanner"
+        echo " [9] WordPress Registration Finder"
+        echo " [10] Grab Domain from Zone-H"
+        echo " [11] Kembali ke Menu Utama"
         echo ""
-        read -p "Select Option (1-16): " pilihan
-        TARGET=""; OUTPUT_FILE="/tmp/kinfo_interactive_$(date +%s).txt"
+        read -p "Pilih Opsi Remote (1-11): " pilihan
+
+        TARGET=""; OUTPUT_FILE="$OUTPUT_DIR/kinfo_interactive_$(date +%s).txt"
         log_info "Output (jika ada) akan disimpan ke: $OUTPUT_FILE"
+        
         case $pilihan in
             1) read -p "Enter domain (e.g., target.com): " TARGET; run_module_subdomain ;;
             2) read -p "Enter target URL (e.g., https://target.com): " TARGET; run_module_direnum ;;
@@ -762,18 +791,71 @@ main_interactive() {
             5) read -p "Enter IP Address: " TARGET; run_module_reverseip ;;
             6) read -p "Enter URL (e.g., http://www.target.com/path): " TARGET; run_module_extract ;;
             7) read -p "Enter target URL (e.g., https://target.com): " TARGET; run_module_webscan ;;
-            8) read -p "Enter local directory path (default: .): " TARGET; if [[ -z "$TARGET" ]]; then TARGET="."; fi; run_module_filescan ;;
-            9) read -p "Enter target URL (e.g., https://target.com): " TARGET; run_module_envscan ;;
-            10) read -p "Enter domain (e.g., target.com): " TARGET; run_module_wpcheck ;;
-            11) read -p "Enter Zone-H notifier name: " TARGET; run_module_zoneh ;;
-            12) mini_ftp_client ;;
-            13) run_module_local_ps ;;
-            14) run_module_local_net ;;
-            15) run_module_local_users ;;
-            16) break ;;
-            *) log_error "Opsi tidak valid. Silakan pilih 1-16"; sleep 2 ;;
+            8) read -p "Enter target URL (e.g., https://target.com): " TARGET; run_module_envscan ;;
+            9) read -p "Enter domain (e.g., target.com): " TARGET; run_module_wpcheck ;;
+            10) read -p "Enter Zone-H notifier name: " TARGET; run_module_zoneh ;;
+            11) break ;;
+            *) log_error "Opsi tidak valid. Silakan pilih 1-11"; sleep 2 ;;
         esac
-        if [[ "$pilihan" -ne 16 ]]; then echo ""; read -p "Tekan Enter untuk melanjutkan..."; fi
+        
+        if [[ "$pilihan" -ne 11 ]]; then echo ""; read -p "Tekan Enter untuk melanjutkan..."; fi
+    done
+}
+
+menu_local() {
+    while true; do
+        show_banner
+        echo "┌──(${USER})-[KINFO]"
+        echo "└─$ MODE: LOCAL INCIDENT RESPONSE"
+        echo ""
+        echo " [1] Webshell Finder [File Enumeration]"
+        echo " [2] Pengecekan Proses Mencurigakan"
+        echo " [3] Pengecekan Koneksi Jaringan"
+        echo " [4] Pengecekan User & Login"
+        echo " [5] Pengecekan Cron Mendalam"
+        echo " [6] Mini Shell FTP Client"
+        echo " [7] Kembali ke Menu Utama"
+        echo ""
+        read -p "Pilih Opsi Lokal (1-7): " pilihan
+
+        TARGET=""; OUTPUT_FILE="$OUTPUT_DIR/kinfo_interactive_$(date +%s).txt"
+        log_info "Output (jika ada) akan disimpan ke: $OUTPUT_FILE"
+        
+        case $pilihan in
+            1) read -p "Enter local directory path (default: .): " TARGET; if [[ -z "$TARGET" ]]; then TARGET="."; fi; run_module_filescan ;;
+            2) run_module_local_ps ;;
+            3) run_module_local_net ;;
+            4) run_module_local_users ;;
+            5) run_module_local_cron ;;
+            6) mini_ftp_client ;;
+            7) break ;;
+            *) log_error "Opsi tidak valid. Silakan pilih 1-7"; sleep 2 ;;
+        esac
+        
+        if [[ "$pilihan" -ne 7 ]]; then echo ""; read -p "Tekan Enter untuk melanjutkan..."; fi
+    done
+}
+
+main_interactive() {
+    PARALLEL_JOBS=20; RATE_LIMIT=0; OUTPUT_FORMAT="text"
+    WORDLIST="$SCRIPT_DIR/wordlist.txt"
+    FTP_LIST="$SCRIPT_DIR/ftpbrute.txt"
+    JUDI_LIST="$SCRIPT_DIR/judilist.txt"
+    while true; do
+        show_banner
+        echo "--- MENU UTAMA ---"
+        echo -e " [R] ${CYAN}Remote Scanner${NC} (Scan Target Eksternal)"
+        echo -e " [L] ${YELLOW}Local IR${NC}       (Scan Mesin Ini)"
+        echo -e " [Q] ${RED}Quit${NC}"
+        echo ""
+        read -p "Pilih Mode (R/L/Q): " mode
+        
+        case $mode in
+            R|r) menu_remote ;;
+            L|l) menu_local ;;
+            Q|q) break ;;
+            *) log_error "Pilihan tidak valid."; sleep 1 ;;
+        esac
     done
 }
 
@@ -782,6 +864,7 @@ main() {
     NON_INTERACTIVE=0; MODULE=""; TARGET=""; WORDLIST="$SCRIPT_DIR/wordlist.txt"
     FTP_LIST="$SCRIPT_DIR/ftpbrute.txt"; JUDI_LIST="$SCRIPT_DIR/judilist.txt"
     OUTPUT_FILE=""; OUTPUT_FORMAT="text"; PARALLEL_JOBS=20; RATE_LIMIT=0
+    
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --module) MODULE="$2"; NON_INTERACTIVE=1; shift 2 ;;
@@ -799,19 +882,23 @@ main() {
             *) shift 1 ;;
         esac
     done
+
+    # Cek dependensi & Buat folder output
     check_dependencies
+    
     log_debug "Mode Debug Aktif."
+    
     if [[ $NON_INTERACTIVE -eq 1 ]]; then
         log_info "Menjalankan KINFO v$VERSION (Mode Non-Interaktif)"
         if [[ -z "$MODULE" ]]; then log_error "Mode non-interaktif membutuhkan --module"; show_usage; exit 1; fi
         
         # Cek apakah modul membutuhkan target
         case "$MODULE" in
-            localps|localnet|localusers)
+            localps|localnet|localusers|localcron)
                 # Modul lokal ini tidak membutuhkan --target
                 ;;
             ftpclient)
-                log_error "Modul 'ftpclient' (12) hanya tersedia dalam mode Interaktif."; exit 1
+                log_error "Modul 'ftpclient' (L6) hanya tersedia dalam mode Interaktif."; exit 1
                 ;;
             *)
                 # Semua modul lain membutuhkan --target
@@ -819,12 +906,23 @@ main() {
                 ;;
         esac
 
+        # *** DIPERBARUI v2.7: Atur path output ***
         if [[ -z "$OUTPUT_FILE" ]]; then
-            if [[ "$OUTPUT_FORMAT" == "json" ]]; then OUTPUT_FILE="/dev/stdout"; else OUTPUT_FILE="kinfo_${MODULE}_$(date +%s).txt"; fi
+            if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+                OUTPUT_FILE="/dev/stdout" # Kirim ke stdout jika JSON
+            else
+                # Buat file di dalam folder output
+                OUTPUT_FILE="$OUTPUT_DIR/kinfo_${MODULE}_$(date +%s).txt"
+            fi
+        else
+            # Jika user set nama file, letakkan di dalam folder output
+            OUTPUT_FILE="$OUTPUT_DIR/$OUTPUT_FILE"
         fi
+        
         log_debug "Output File: $OUTPUT_FILE"
         export TARGET; export WORDLIST; export FTP_LIST; export JUDI_LIST; export OUTPUT_FILE
         export OUTPUT_FORMAT; export PARALLEL_JOBS; export RATE_LIMIT; export KINFO_USER_AGENT; export DORK_UA
+        
         case "$MODULE" in
             subdomain) run_module_subdomain ;;
             direnum) run_module_direnum ;;
@@ -833,17 +931,20 @@ main() {
             reverseip) run_module_reverseip ;;
             extract) run_module_extract ;;
             webscan) run_module_webscan ;;
-            filescan) run_module_filescan ;;
             envscan) run_module_envscan ;;
             wpcheck) run_module_wpcheck ;;
             zoneh) run_module_zoneh ;;
+            filescan) run_module_filescan ;;
             localps) run_module_local_ps ;;
             localnet) run_module_local_net ;;
             localusers) run_module_local_users ;;
+            localcron) run_module_local_cron ;;
             *) log_error "Modul tidak dikenal: '$MODULE'"; show_usage; exit 1 ;;
         esac
-        log_info "Eksekusi selesai."
+        log_info "Eksekusi selesai. Output disimpan di: $OUTPUT_FILE"
+
     else
+        # --- MODE INTERAKTIF ---
         main_interactive
     fi
 }
