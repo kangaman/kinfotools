@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # KINFO - Incident Response & Pentest Toolkit
-# Versi: 2.8 (Final dengan Lisensi)
+# Versi: 1.3 (Integrasi Kolektor Artefak IR)
 #
 # Hak Cipta (c) 2025 Saeful
 # Kontak: https://jejakintel.t.me/
@@ -32,13 +32,15 @@
 
 
 # --- KONFIGURASI GLOBAL ---
-VERSION="2.8"
+VERSION="1.3"
 KINFO_USER_AGENT="Mozilla/5.0 KINFO/$VERSION"
 DORK_UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"
 
 # --- LOKASI SCRIPT & FOLDER OUTPUT ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 OUTPUT_DIR="$SCRIPT_DIR/outputkinfo"
+# *** BARU v3.0: Folder untuk Koleksi IR Penuh ***
+IR_DATA_DIR="$SCRIPT_DIR/IRdata"
 
 # --- WARNA ---
 RED='\033[0;31m'
@@ -105,7 +107,7 @@ check_dependencies() {
             missing_deps=1
         fi
     done
-    for cmd in jq nslookup nc ftp whois ps netstat ss last lastlog who; do
+    for cmd in jq nslookup nc ftp whois ps netstat ss last lastlog who file; do
         if ! command -v "$cmd" &>/dev/null; then
             log_warn "Dependensi opsional tidak ditemukan: $cmd. Beberapa fitur mungkin tidak berfungsi."
         fi
@@ -114,12 +116,14 @@ check_dependencies() {
         log_error "Harap install dependensi wajib dan coba lagi."
         exit 1
     fi
+    # Buat kedua folder output
     if ! mkdir -p "$OUTPUT_DIR"; then
-        log_error "Gagal membuat folder output di: $OUTPUT_DIR"
-        log_error "Periksa izin (permissions) folder."
-        exit 1
+        log_error "Gagal membuat folder output di: $OUTPUT_DIR"; exit 1
     fi
-    log_debug "Folder output dipastikan ada di: $OUTPUT_DIR"
+    if ! mkdir -p "$IR_DATA_DIR"; then
+        log_error "Gagal membuat folder IRdata di: $IR_DATA_DIR"; exit 1
+    fi
+    log_debug "Folder output dipastikan ada di: $OUTPUT_DIR dan $IR_DATA_DIR"
 }
 
 # --- BANNER & BANTUAN (USAGE) ---
@@ -141,6 +145,7 @@ EOF
     echo "  Version: $VERSION | By: Saeful"
     echo "  Contact: https://jejakintel.t.me/      "
     echo "  Output disimpan di: $OUTPUT_DIR"
+    echo "  Output Koleksi IR di: $IR_DATA_DIR"
     echo "========================================="
     echo ""
 }
@@ -173,9 +178,10 @@ show_usage() {
     echo "  localnet        : [L3] Pengecekan Koneksi Jaringan (Lokal)"
     echo "  localusers      : [L4] Pengecekan User & Login (Lokal)"
     echo "  localcron       : [L5] Pengecekan Cron Mendalam (Lokal)"
+    echo "  localcollect    : [L6] Kumpulkan Artefak Sistem (Full) (membutuhkan --target <path>)"
     echo ""
     echo "OPTIONS:"
-    echo "  -t, --target <str>        : Target (domain, URL, IP, atau path lokal untuk 'filescan')"
+    echo "  -t, --target <str>        : Target (domain, URL, IP, atau path lokal untuk 'filescan'/'localcollect')"
     echo "  -w, --wordlist <file>     : Path ke wordlist (default: $SCRIPT_DIR/wordlist.txt)"
     echo "  -o, --output-file <file>  : Simpan output ke file (Nama saja, akan ditempatkan di $OUTPUT_DIR)"
     echo "  -f, --output-format <fmt> : Format output: text (default), json"
@@ -592,7 +598,6 @@ EOF
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
-
 # --- [L1] WEBSHELL FINDER [FILE ENUM] ---
 check_file_suspicious() {
     local F="$1"; local KR="$2"; local RF="$3"
@@ -697,22 +702,16 @@ EOF
 run_module_local_users() {
     log_info "Memulai Pengecekan User & Login (Lokal)..."
     local TI; TI=$(add_temp_file)
-    
     echo "--- User Yang Sedang Login (who) ---" >> "$TI"
     (who -u 2>/dev/null || echo "Perintah 'who' tidak tersedia.") >> "$TI"
-    
     echo "" >> "$TI"; echo "--- Histori Login (last - 20 entri) ---" >> "$TI"
     (last -n 20 2>/dev/null || echo "Perintah 'last' tidak tersedia.") >> "$TI"
-
     echo "" >> "$TI"; echo "--- Terakhir Login (lastlog - 10 terbaru) ---" >> "$TI"
     (lastlog 2>/dev/null | head -n 11 || echo "Perintah 'lastlog' tidak tersedia.") >> "$TI"
-
     echo "" >> "$TI"; echo "--- Modifikasi File User (Baru/Diubah) ---" >> "$TI"
     (ls -l /etc/passwd /etc/shadow /etc/group 2>/dev/null || echo "Tidak dapat membaca file user.") >> "$TI"
-    
     echo "" >> "$TI"; echo "--- /etc/passwd (User uid >= 1000 atau uid = 0) ---" >> "$TI"
     (awk -F: '($3 >= 1000 || $3 == 0) {print}' /etc/passwd 2>/dev/null) >> "$TI"
-
     log_info "[+] Pengecekan user dan login selesai."
     local OD
     if [[ "$OUTPUT_FORMAT" == "json" ]]; then
@@ -734,19 +733,14 @@ EOF
 run_module_local_cron() {
     log_info "Memulai Pengecekan Cron Mendalam (Lokal)..."
     local TI; TI=$(add_temp_file)
-
     echo "--- Crontab (root) ---" >> "$TI"
     (sudo crontab -l -u root 2>/dev/null || echo "Tidak ada crontab untuk root.") >> "$TI"
-    
     echo "" >> "$TI"; echo "--- Crontab (current user: $USER) ---" >> "$TI"
     (crontab -l 2>/dev/null || echo "Tidak ada crontab untuk $USER.") >> "$TI"
-
     echo "" >> "$TI"; echo "--- Crontab User Lain (/var/spool/cron/) ---" >> "$TI"
     (sudo ls -l /var/spool/cron/crontabs/ 2>/dev/null || sudo ls -l /var/spool/cron/ 2>/dev/null || echo "Tidak ada/bisa membaca file cron user lain.") >> "$TI"
-    
     echo "" >> "$TI"; echo "--- Cron Drop-ins (/etc/cron.d, etc) ---" >> "$TI"
     (sudo ls -l /etc/cron.d/ /etc/cron.hourly/ /etc/cron.daily/ /etc/cron.weekly/ /etc/cron.monthly/ 2>/dev/null || echo "Tidak dapat membaca /etc/cron* direktori.") >> "$TI"
-
     log_info "[+] Pengecekan cron selesai."
     local OD
     if [[ "$OUTPUT_FORMAT" == "json" ]]; then
@@ -764,7 +758,141 @@ EOF
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
-# --- [L6] MINI SHELL FTP CLIENT (INTERAKTIF SAJA) ---
+# --- *** BARU v3.0 *** [L6] KUMPULKAN ARTEFAK SISTEM (FULL) ---
+# Helper dari UbuntuIR.sh untuk mengambil history semua user
+get_all_history() {
+    local history_file="$1"
+    log_info "Mengumpulkan .bash_history dari semua user..."
+    
+    # Fungsi nested untuk memproses per user
+    _process_user_history() {
+        local user_dir="$1"
+        local user_name
+        user_name=$(basename "$user_dir")
+        local HIST_FILE="$user_dir/.bash_history"
+        
+        if [[ -f "$HIST_FILE" ]]; then
+            echo -e "\n========================================================" >> "$history_file"
+            echo "🧑‍💻 USER: $user_name ($HIST_FILE)" >> "$history_file"
+            echo "========================================================" >> "$history_file"
+            sudo cat "$HIST_FILE" >> "$history_file" 2>/dev/null
+        fi
+    }
+    
+    # Loop semua user home dir
+    for i in /home/*; do
+        [ -d "$i" ] && _process_user_history "$i"
+    done
+    _process_user_history "/root"
+}
+
+# Helper dari UbuntuIR.sh untuk mengambil cron semua user
+get_all_crons() {
+    local cron_file="$1"
+    log_info "Mengumpulkan crontab dari semua user..."
+    
+    for user in $(cut -f1 -d: /etc/passwd); do
+        echo -e "\n========================================================" >> "$cron_file"
+        echo "⏱️  CRON UNTUK USER: $user" >> "$cron_file"
+        echo "========================================================" >> "$cron_file"
+        sudo crontab -l -u "$user" >> "$cron_file" 2>/dev/null || echo "Tidak ada cron untuk $user" >> "$cron_file"
+    done
+}
+
+run_module_local_collect() {
+    log_info "Memulai Koleksi Artefak Sistem (Full)..."
+    
+    # Modul ini WAJIB root
+    if [[ $EUID -ne 0 ]]; then
+        log_error "Modul ini harus dijalankan sebagai root. Gunakan 'sudo ./kinfo.sh ...'"
+        return 1
+    fi
+    
+    if [[ -z "$TARGET" ]]; then
+        log_warn "Target path tidak diset. Menggunakan '/var/www' sebagai default."
+        TARGET="/var/www"
+    fi
+    local SCAN_PATH="$TARGET"
+    if [[ ! -d "$SCAN_PATH" ]]; then
+        log_error "Direktori '$SCAN_PATH' tidak ditemukan. Membatalkan."
+        return 1
+    fi
+    log_info "Path target untuk pemindaian file: $SCAN_PATH"
+
+    # Buat direktori koleksi
+    local TIMESTAMP
+    TIMESTAMP=$(date "+%Y%m%d-%H%M%S")
+    local COLLECT_DIR="$IR_DATA_DIR/IR-Collection-$TIMESTAMP"
+    if ! mkdir -p "$COLLECT_DIR"; then
+        log_error "Gagal membuat direktori koleksi: $COLLECT_DIR"; return 1
+    fi
+    log_info "Artefak akan disimpan di: $COLLECT_DIR"
+
+    # Meniru koleksi dari UbuntuIR.sh
+    log_info "Mengumpulkan Info Sistem..."
+    date > "$COLLECT_DIR/0_DateTime.txt"
+    uname -a > "$COLLECT_DIR/1_KernelVersion.txt"
+    cat /etc/*-release > "$COLLECT_DIR/2_OSVersion.txt"
+    
+    log_info "Mengumpulkan Info Proses & Servis..."
+    ps aux > "$COLLECT_DIR/3_ProcessList_aux.txt"
+    top -b -n 1 > "$COLLECT_DIR/4_TopRunning.txt"
+    
+    log_info "Mengumpulkan Info Jaringan..."
+    (netstat -tulnp || ss -tuln) > "$COLLECT_DIR/8_Network_Listen.txt" 2>/dev/null
+    (netstat -antup || ss -antup) > "$COLLECT_DIR/9_Network_All.txt" 2>/dev/null
+    (netstat -antup || ss -antup) | grep "ESTA" > "$COLLECT_DIR/10_Network_Established.txt" 2>/dev/null
+    w > "$COLLECT_DIR/11_Users_LoggedOn.txt"
+    cat /etc/resolv.conf > "$COLLECT_DIR/12_DNS.txt"
+    cat /etc/hostname > "$COLLECT_DIR/13_Hostname.txt"
+    cat /etc/hosts > "$COLLECT_DIR/14_Hosts.txt"
+
+    log_info "Mengumpulkan Info User..."
+    get_all_history "$COLLECT_DIR/5_All_BashHistory.txt"
+    cat /etc/passwd > "$COLLECT_DIR/15_Users_Passwd.txt"
+    cat /etc/passwd | grep "bash" > "$COLLECT_DIR/16_Users_Bash.txt"
+    lastlog > "$COLLECT_DIR/17_Lastlog.txt"
+    last > "$COLLECT_DIR/18_Last.txt"
+    
+    log_info "Mengumpulkan Info Cron..."
+    ls -al /etc/cron* > "$COLLECT_DIR/6_Cron_etc.txt"
+    ls -al /var/spool/cron/crontabs/ > "$COLLECT_DIR/7_Cron_spool.txt" 2>/dev/null
+    get_all_crons "$COLLECT_DIR/7-2_Cron_AllUsers.txt"
+    
+    log_info "Mengumpulkan Info File System (Ini mungkin butuh waktu)..."
+    log_info "Listing /home..."
+    ls -alrtR /home > "$COLLECT_DIR/19_Homedir_List.txt" 2>/dev/null
+    log_info "Listing $SCAN_PATH..."
+    ls -alrtR "$SCAN_PATH" > "$COLLECT_DIR/20_ScanPath_List.txt" 2>/dev/null
+    
+    log_info "Mencari file yang baru diubah di $SCAN_PATH..."
+    find "$SCAN_PATH" -type f -mtime -30 -ls > "$COLLECT_DIR/24_LastModified30d.txt" 2>/dev/null
+    find "$SCAN_PATH" -type f -ctime -30 -ls > "$COLLECT_DIR/25_NewFiles30d.txt" 2>/dev/null
+    
+    log_info "Mencari indikator Webshell di /home (Ini mungkin butuh waktu)..."
+    grep -RPn "(passthru|shell_exec|system|phpinfo|base64_decode|chmod|mkdir|fopen|fclose|fclose|readfile) *\(" /home/ > "$COLLECT_DIR/21_BackdoorScan_Home.txt" 2>/dev/null
+    
+    log_info "Mencari indikator Webshell di $SCAN_PATH (Ini mungkin butuh waktu)..."
+    grep -RPn "(passthru|shell_exec|system|phpinfo|base64_decode|chmod|mkdir|fopen|fclose|fclose|readfile) *\(" "$SCAN_PATH" > "$COLLECT_DIR/22_BackdoorScan_ScanPath.txt" 2>/dev/null
+
+    log_info "Mencari indikator Judi di $SCAN_PATH (Ini mungkin butuh waktu)..."
+    grep -Rinw "$SCAN_PATH" -e "gacor" -e "maxwin" -e "thailand" -e "sigmaslot" -e "zeus" -e "cuan" > "$COLLECT_DIR/23_JudiScan_ScanPath.txt" 2>/dev/null
+    
+    log_info "Koleksi artefak selesai."
+    
+    # Kompresi hasil
+    log_info "Mengkompres hasil..."
+    local TAR_FILE="$IR_DATA_DIR/IR-Collection-$TIMESTAMP.tar.gz"
+    if tar -czf "$TAR_FILE" -C "$IR_DATA_DIR" "$(basename "$COLLECT_DIR")"; then
+        log_result "Sukses! Koleksi artefak disimpan di: $TAR_FILE"
+        log_info "Menghapus folder data mentah..."
+        rm -rf "$COLLECT_DIR"
+    else
+        log_error "Gagal mengkompres data. Data mentah disimpan di: $COLLECT_DIR"
+    fi
+}
+
+# --- [L7] MINI SHELL FTP CLIENT (INTERAKTIF SAJA) ---
 mini_ftp_client() {
     log_info "Memulai Mini Shell FTP Client..."
     local H P U PW; read -p "Enter FTP host: " H; read -p "Enter FTP port (default 21): " P
@@ -831,31 +959,53 @@ menu_local() {
         echo "┌──(${USER})-[KINFO]"
         echo "└─$ MODE: LOCAL INCIDENT RESPONSE"
         echo ""
+        echo "--- Pemindaian Cepat ---"
         echo " [1] Webshell Finder [File Enumeration]"
         echo " [2] Pengecekan Proses Mencurigakan"
         echo " [3] Pengecekan Koneksi Jaringan"
         echo " [4] Pengecekan User & Login"
         echo " [5] Pengecekan Cron Mendalam"
-        echo " [6] Mini Shell FTP Client"
-        echo " [7] Kembali ke Menu Utama"
         echo ""
-        read -p "Pilih Opsi Lokal (1-7): " pilihan
+        echo "--- Koleksi Penuh ---"
+        echo " [6] Kumpulkan Artefak Sistem (Full) (Perlu Root & Target Path)"
+        echo ""
+        echo "--- Utilitas ---"
+        echo " [7] Mini Shell FTP Client"
+        echo " [8] Kembali ke Menu Utama"
+        echo ""
+        read -p "Pilih Opsi Lokal (1-8): " pilihan
 
         TARGET=""; OUTPUT_FILE="$OUTPUT_DIR/kinfo_L${pilihan}_$(date +%s).txt"
-        log_info "Output (jika ada) akan disimpan ke: $OUTPUT_FILE"
         
         case $pilihan in
-            1) read -p "Enter local directory path (default: .): " TARGET; if [[ -z "$TARGET" ]]; then TARGET="."; fi; run_module_filescan ;;
-            2) run_module_local_ps ;;
-            3) run_module_local_net ;;
-            4) run_module_local_users ;;
-            5) run_module_local_cron ;;
-            6) mini_ftp_client ;;
-            7) break ;;
-            *) log_error "Opsi tidak valid. Silakan pilih 1-7"; sleep 2 ;;
+            1) 
+                log_info "Output (jika ada) akan disimpan ke: $OUTPUT_FILE"
+                read -p "Enter local directory path (default: .): " TARGET; if [[ -z "$TARGET" ]]; then TARGET="."; fi; run_module_filescan ;;
+            2) 
+                log_info "Output (jika ada) akan disimpan ke: $OUTPUT_FILE"
+                run_module_local_ps ;;
+            3) 
+                log_info "Output (jika ada) akan disimpan ke: $OUTPUT_FILE"
+                run_module_local_net ;;
+            4) 
+                log_info "Output (jika ada) akan disimpan ke: $OUTPUT_FILE"
+                run_module_local_users ;;
+            5) 
+                log_info "Output (jika ada) akan disimpan ke: $OUTPUT_FILE"
+                run_module_local_cron ;;
+            6) 
+                # Modul L6 (localcollect) TIDAK menggunakan $OUTPUT_FILE standar, ia punya folder sendiri
+                read -p "Enter path direktori untuk dipindai (e.g., /var/www, /home): " TARGET
+                run_module_local_collect ;;
+            7) 
+                # Modul FTP tidak menghasilkan file output
+                log_info "Menjalankan FTP Client..."
+                mini_ftp_client ;;
+            8) break ;;
+            *) log_error "Opsi tidak valid. Silakan pilih 1-8"; sleep 2 ;;
         esac
         
-        if [[ "$pilihan" -ne 7 ]]; then echo ""; read -p "Tekan Enter untuk melanjutkan..."; fi
+        if [[ "$pilihan" -ne 8 ]]; then echo ""; read -p "Tekan Enter untuk melanjutkan..."; fi
     done
 }
 
@@ -915,30 +1065,36 @@ main() {
         
         case "$MODULE" in
             localps|localnet|localusers|localcron)
+                # Modul lokal ini tidak membutuhkan --target
                 ;;
             ftpclient)
-                log_error "Modul 'ftpclient' (L6) hanya tersedia dalam mode Interaktif."; exit 1
+                log_error "Modul 'ftpclient' (L7) hanya tersedia dalam mode Interaktif."; exit 1
                 ;;
             *)
+                # Semua modul lain membutuhkan --target
                 if [[ -z "$TARGET" ]]; then log_error "Modul '$MODULE' membutuhkan --target <target>"; show_usage; exit 1; fi
                 ;;
         esac
 
-        if [[ -z "$OUTPUT_FILE" ]]; then
-            if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-                OUTPUT_FILE="/dev/stdout"
+        # Tentukan file output, KECUALI untuk localcollect
+        if [[ "$MODULE" != "localcollect" ]]; then
+            if [[ -z "$OUTPUT_FILE" ]]; then
+                if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+                    OUTPUT_FILE="/dev/stdout"
+                else
+                    OUTPUT_FILE="$OUTPUT_DIR/kinfo_${MODULE}_$(date +%s).txt"
+                fi
             else
-                OUTPUT_FILE="$OUTPUT_DIR/kinfo_${MODULE}_$(date +%s).txt"
+                OUTPUT_FILE="$OUTPUT_DIR/$OUTPUT_FILE"
             fi
-        else
-            OUTPUT_FILE="$OUTPUT_DIR/$OUTPUT_FILE"
+            log_debug "Output File: $OUTPUT_FILE"
         fi
-        
-        log_debug "Output File: $OUTPUT_FILE"
+
         export TARGET; export WORDLIST; export FTP_LIST; export JUDI_LIST; export OUTPUT_FILE
         export OUTPUT_FORMAT; export PARALLEL_JOBS; export RATE_LIMIT; export KINFO_USER_AGENT; export DORK_UA
         
         case "$MODULE" in
+            # Remote
             subdomain) run_module_subdomain ;;
             direnum) run_module_direnum ;;
             ftpbrute) run_module_ftpbrute ;;
@@ -949,14 +1105,19 @@ main() {
             envscan) run_module_envscan ;;
             wpcheck) run_module_wpcheck ;;
             zoneh) run_module_zoneh ;;
+            # Lokal
             filescan) run_module_filescan ;;
             localps) run_module_local_ps ;;
             localnet) run_module_local_net ;;
             localusers) run_module_local_users ;;
             localcron) run_module_local_cron ;;
+            localcollect) run_module_local_collect ;; # Modul koleksi penuh
             *) log_error "Modul tidak dikenal: '$MODULE'"; show_usage; exit 1 ;;
         esac
-        log_info "Eksekusi selesai. Output disimpan di: $OUTPUT_FILE"
+        
+        if [[ "$MODULE" != "localcollect" ]]; then
+            log_info "Eksekusi selesai. Output disimpan di: $OUTPUT_FILE"
+        fi
 
     else
         main_interactive
