@@ -232,14 +232,9 @@ Lisensi: **MIT License**
 ---
 
 ## 👨‍💻 Pengembang
-
-- **Saeful Bahri (CSIRT Diskominfo Subang)** — Pengembang utama & integrasi keamanan.  
-- **Gemini Refactor Team** — Optimasi, modularisasi, JSON output, dan parallel scan.  
+- **Saeful** — Pengembang utama & integrasi keamanan.    
 
 📎 Telegram: [@jejakintel](https://t.me/jejakintel)  
-🌐 Website: [https://cloud.subang.go.id/](https://cloud.subang.go.id/)  
-📧 Email: csirt@subang.go.id
-
 ---
 
 > “KINFO adalah toolkit deteksi yang berpikir seperti penyerang, tapi bekerja seperti analis keamanan.”
