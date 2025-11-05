@@ -65,3 +65,14 @@ sudo apt install -y curl grep findutils coreutils jq dnsutils netcat ftp whois
 **## Instalasi**
 **Minimal (harus ada):**
 - `bash`, `curl`, `grep`, `find`, `stat`, `sed`, `awk`, `sort`, `uniq`, `wc`
+
+
+---
+
+**## Tentang KINFO**
+KINFO adalah toolkit berbasis **Bash** (menu-driven CLI) yang dirancang untuk membantu tim respons insiden dan penetration tester pada tahap reconnaissance dan triage awal. Fitur utamanya: pengumpulan subdomain, enumerasi direktori/file, pemeriksaan `.env`/debug, deteksi webshell, pengecekan WordPress registration, reverse IP lookup, dan utilitas FTP sederhana.
+
+Singkatnya: **cepat menemukan masalah → lakukan verifikasi manual → laporkan**.  
+Humor singkat: alat ini cerdas, bukan garang—biar investigasi rapi, bukan rusuh.
+
+---
