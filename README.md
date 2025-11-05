@@ -1,6 +1,3 @@
-# KINFO — Incident Response & Recon Toolkit
-
-```
 +===========================+
 | _  _____ _   _ _____ ___  |
 | |/ /_ _| \ | |  ___/ _ \ |
@@ -8,191 +5,252 @@
 | . \ | || |\  |  _|| |_| |
 |_|\_\___|_| \_|_|   \___/ |
 +===========================+
-```
 
-**Versi:** `2.6` · **Update:** `5 November 2025` · **Contact:** `https://jejakintel.t.me/`
+# 🧠 KINFO v2.7 — Incident Response & Pentest Toolkit
 
-> KINFO adalah toolkit cepat dan modular untuk tim respons insiden (CSIRT) dan pentester — fokus pada reconnaissance, triage lokal & jarak jauh, dan pemeriksaan cepat.  
-> **Penting:** gunakan **hanya** pada sistem yang Anda miliki atau yang sudah mendapat izin eksplisit.
+![Bash](https://img.shields.io/badge/Language-Bash-blue?logo=gnu-bash)
+![Version](https://img.shields.io/badge/Version-2.7-green)
+![Updated](https://img.shields.io/badge/Updated-5_Nov_2025-blueviolet)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
----
-
-## Ringkasan versi 2.6 — Apa yang baru / diperbarui
-Versi `2.6` membawa beberapa perbaikan dan fitur baru dibanding versi sebelumnya (2.5):
-
-- **Modul Local IR baru:** ditambahkan modul lokal untuk investigasi in-situ:
-  - `localps` (Modul 13) — pengecekan proses mencurigakan (user web server umum).
-  - `localnet` (Modul 14) — pengecekan koneksi jaringan (LISTEN / ESTABLISHED) menggunakan `ss`/`netstat`.
-  - `localusers` (Modul 15) — pemeriksaan user (uid >=1000 / uid 0) dan crontab root/current user.
-- **Refactor & Stabilitas:** perapihan struktur kode, generalisasi helper (logging, temp files, cleanup), dan validasi dependensi yang lebih jelas.
-- **Mode non-interaktif (CLI):** jalankan per-modul lewat flags (`--module`, `--target`, dsb.) untuk automasi / CI.
-- **Output JSON & Logging:** dukungan output `json` untuk integrasi SIEM / pipeline; logging terpisah dengan opsi `--logfile`.
-- **Paralelisasi & Rate-limit:** semua modul remote/lokal menggunakan `xargs -P` paralel dan opsi `--parallel/-p` serta `--rate-limit/-r`.
-- **ENV & Debug Scanner diperluas (modul 9):** daftar paths diperbanyak (backup .sql, zip/rar, banyak subfolder backup/sql/uploads, swagger/actuator/health, dll).
-- **Cleanup file temporer & trap EXIT:** file temporer dikelola rapi dan dihapus saat skrip keluar.
-- **Mini FTP client (interaktif)** tetap ada untuk akses cepat, plus peringatan jika modul FTP hanya interaktif.
-- **Peningkatan user-agent & dork user-agent** untuk modul pencarian konten (bing dork).
+> **KINFO** adalah toolkit gabungan untuk **Incident Response lokal** dan **Pemindaian Keamanan Remote**, dibuat untuk membantu tim CSIRT, pentester, dan analis keamanan dalam melakukan triage cepat, enumerasi, serta deteksi anomali sistem.
 
 ---
 
-## Fitur Utama (ringkas)
-- Enhanced Subdomain Finder (crt.sh, bufferover, OTX, ThreatCrowd) + DNS & HTTP live-check.  
-- Directory / File Enumeration dengan wordlist + ukuran file (size) dan HTTP status.  
-- FTP bruteforce (wordlist `username:password`) dan mini FTP client.  
-- Judi Online Finder (keywords + Bing dork).  
-- Reverse IP lookup (viewdns.info + fallback whois).  
-- Extract domain & security header check (HSTS, CSP, X-Frame-Options).  
-- Webshell Finder: remote dirscan + local file enumeration (pattern-based).  
-- ENV & Debug Scanner (luas: .env, backup.sql, swagger, actuator, dll.).  
-- WordPress registration finder.  
-- Zone-H grabber.  
-- Local IR modules: process, network, users & cron checks.  
-- Non-interactive CLI, JSON output, logging, parallel jobs, rate limiting.  
+## 🆕 Fitur Baru v2.7
+
+| Fitur | Deskripsi |
+|:------|:-----------|
+| ⚙️ **Split Menu (Local & Remote)** | Mode interaktif kini dipisah jelas antara `Remote Scanner` dan `Local IR` untuk efisiensi. |
+| 💾 **Output Folder Otomatis** | Semua hasil otomatis tersimpan di folder `outputkinfo/` di lokasi script. |
+| 🧩 **Parallel Scanning & JSON Output** | Setiap modul mendukung mode paralel dan format output `--output-format json`. |
+| 🧰 **Lokal IR Modules Baru** | Tambahan modul: `localusers` (cek login & user) dan `localcron` (cek cron job mendalam). |
+| 🧾 **Non-Interaktif CLI Mode** | Jalankan langsung modul tertentu via argumen `--module`. Cocok untuk otomatisasi server. |
+| 🧠 **Debug & Logging System** | Gunakan flag `--debug` untuk log detail dan `--logfile` untuk simpan ke file. |
 
 ---
 
-## Persyaratan & Dependensi
-**Wajib:** `bash`, `curl`, `grep`, `find`, `stat`, `sed`, `sort`, `uniq`, `wc`, `mktemp`, `xargs`  
-**Direkomendasikan / Opsional (mempengaruhi fitur tertentu):** `jq`, `nslookup`/`dig`/`host`, `nc` (netcat), `ftp`, `whois`, `ps`, `ss`/`netstat`, `sudo` (untuk localnet details)
+## 🧭 Struktur Menu
 
-Contoh instalasi (Debian/Ubuntu):
+### 🛰️ **REMOTE SCANNER**
+Digunakan untuk enumerasi & pengujian eksternal terhadap domain/IP target.
+
+| Modul | Deskripsi |
+|:------|:-----------|
+| `subdomain` | Enhanced Subdomain Finder (via crt.sh, bufferover.run, AlienVault, ThreatCrowd). |
+| `direnum` | Directory & File Enumeration berbasis wordlist. |
+| `ftpbrute` | FTP Bruteforce menggunakan kombinasi username:password. |
+| `judi` | Pendeteksi konten **judi online** via keyword & Bing dork. |
+| `reverseip` | Reverse IP lookup via viewdns.info & whois fallback. |
+| `extract` | Ekstraksi domain + pemeriksaan header keamanan. |
+| `webscan` | Pencarian webshell via path umum. |
+| `envscan` | Pendeteksian file `.env`, backup, debug, dan konfigurasi sensitif. |
+| `wpcheck` | Pendeteksi halaman registrasi pada situs WordPress. |
+| `zoneh` | Pengambil domain berdasarkan notifier di Zone-H. |
+
+---
+
+### 💻 **LOCAL INCIDENT RESPONSE**
+Untuk investigasi mesin lokal (host tempat script dijalankan).
+
+| Modul | Deskripsi |
+|:------|:-----------|
+| `filescan` | Memindai file PHP/ASP/JSP mencurigakan (indikasi webshell). |
+| `localps` | Menampilkan & memeriksa proses mencurigakan (apache/nginx/php). |
+| `localnet` | Cek koneksi jaringan `ESTABLISHED` & `LISTEN`. |
+| `localusers` | Menampilkan user login aktif, histori login, dan file `/etc/passwd`. |
+| `localcron` | Enumerasi cron job dari semua user & direktori cron. |
+| `ftpclient` | Mini shell FTP interaktif bawaan (khusus mode interaktif). |
+
+---
+
+## ⚙️ Instalasi
+
 ```bash
-sudo apt update
-sudo apt install -y curl grep findutils coreutils jq dnsutils netcat ftp whois procps iproute2
-```
+# Clone repo atau copy script
+git clone https://github.com/yourrepo/kinfo.git
+cd kinfo
 
-> Skrip akan memeriksa dependensi wajib saat startup dan menolak berjalan jika yang wajib tidak ditemukan. Dependensi opsional hanya akan memperingatkan.
-
----
-
-## Instalasi
-1. Simpan `kinfo.sh` di folder kerja:
-```bash
-cp kinfo.sh ~/tools/kinfo/kinfo.sh
-cd ~/tools/kinfo
-```
-2. Jadikan executable:
-```bash
+# Jadikan executable
 chmod +x kinfo.sh
 ```
-3. (Opsional) Siapkan wordlists di direktori yang sama:
-- `wordlist.txt` — untuk `direnum`, `webscan` fallback  
-- `ftpbrute.txt` — untuk `ftpbrute` (format `user:pass`)  
-- `judilist.txt` — untuk `judi` module
 
-4. Jalankan:
-- Interaktif:
+> 💡 *Tidak perlu dependensi besar — hanya utilitas standar Linux seperti `curl`, `grep`, `jq`, `ps`, `ss`, `netstat`, `ftp`, dan `whois`.*
+
+---
+
+## 🚀 Cara Penggunaan
+
+### 🔹 Mode Interaktif
+Jalankan tanpa argumen untuk mode GUI berbasis CLI:
 ```bash
 ./kinfo.sh
 ```
-- Non-interaktif (example):
-```bash
-./kinfo.sh --module subdomain --target example.com -f json -o subdomains.json
+Lalu pilih:
+- `[R] Remote Scanner`
+- `[L] Local IR`
+- `[Q] Quit`
+
+Contoh navigasi:
+```
+┌──(user)-[KINFO]
+└─$ MODE: LOCAL INCIDENT RESPONSE
+
+ [1] Webshell Finder [File Enumeration]
+ [2] Pengecekan Proses Mencurigakan
+ [3] Pengecekan Koneksi Jaringan
+ [4] Pengecekan User & Login
+ [5] Pengecekan Cron Mendalam
+ [6] Mini Shell FTP Client
+ [7] Kembali ke Menu Utama
 ```
 
 ---
 
-## Cara Penggunaan — Interaktif & CLI (Non-Interaktif)
+### 🔹 Mode Non-Interaktif (CLI)
+Gunakan argumen `--module` untuk menjalankan secara otomatis:
 
-### Mode Interaktif (menu)
-Jalankan `./kinfo.sh` tanpa argumen. Menu akan menampilkan pilihan:
-- REMOTE SCANNER: 1..11 (subdomain, direnum, ftpbrute, judi, reverseip, extract, webscan, envscan, wpcheck, zoneh)
-- LOCAL IR: 8,12..15 (filescan, ftpclient, localps, localnet, localusers)
-- Pilih angka, masukkan target ketika diminta.
-
-Output interaktif disimpan sementara ke `/tmp/kinfo_interactive_<timestamp>.txt`.
-
-### Mode Non-Interaktif (CLI)
-Contoh umum:
+#### Contoh Remote:
 ```bash
-./kinfo.sh --module <module> -t <target> -o <output_file> -f json -p 30 -r 0.5 -l kinfo.log
+./kinfo.sh --module subdomain -t example.com -o hasil_subdomain.txt
+./kinfo.sh --module direnum -t https://example.com -w wordlist.txt --parallel 30
+./kinfo.sh --module ftpbrute -t 192.168.1.10:21 --ftp-list ftpbrute.txt
 ```
 
-Flags penting:
-- `--module <name>` : modul, mis. `subdomain`, `direnum`, `filescan`, `envscan`, `localps`, `localnet`, `localusers`  
-- `-t, --target <str>` : domain/URL/IP atau path lokal (untuk `filescan`)  
-- `-w, --wordlist <file>` : wordlist path (default: `./wordlist.txt`)  
-- `--ftp-list <file>` : ftp list path (default: `./ftpbrute.txt`)  
-- `--judi-list <file>` : judi list path (default: `./judilist.txt`)  
-- `-o, --output-file <file>` : simpan output; default `kinfo_<module>_<ts>.txt` (text) atau `/dev/stdout` bila json  
-- `-f, --output-format <fmt>` : `text` (default) atau `json`  
-- `-p, --parallel <num>` : jumlah proses paralel (default: 20)  
-- `-r, --rate-limit <sec>` : jeda antar permintaan (default: 0)  
-- `-l, --logfile <file>` : simpan log (format teks timestamped)  
-- `-d, --debug` : aktifkan mode debug (verbose)  
-- `-h, --help` : tampilkan pesan bantuan
-
----
-
-## Contoh Perintah
-
-1. Enhanced Subdomain Finder (JSON output):
+#### Contoh Lokal:
 ```bash
-./kinfo.sh --module subdomain --target example.com -f json -o subdomains.json
-```
-
-2. Directory enumeration (with custom wordlist, 50 parallel, 0.2s delay):
-```bash
-./kinfo.sh --module direnum --target https://sub.example.com -w ./wordlist.txt -p 50 -r 0.2 -o found.txt
-```
-
-3. Local file scan (scan kode sumber web lokal):
-```bash
-./kinfo.sh --module filescan --target /var/www/html -p 30 -f json -o suspicious_files.json
-```
-
-4. Local network & process checks:
-```bash
-# check processes (localps)
-./kinfo.sh --module localps
-# check network (may require sudo)
-sudo ./kinfo.sh --module localnet -o localnet.txt
-# check users & cron
-./kinfo.sh --module localusers -o users_cron.txt
-```
-
-5. Run ENV scanner with log:
-```bash
-./kinfo.sh --module envscan --target example.com -o env_findings.txt -l kinfo_env.log
+./kinfo.sh --module filescan -t /var/www/html -f json
+./kinfo.sh --module localnet
+./kinfo.sh --module localcron --output-file croncheck.txt
 ```
 
 ---
 
-## Output & Lokasi File
-- Output default untuk non-interactive: `kinfo_<module>_<timestamp>.txt` (text) atau `/dev/stdout` jika `-f json` dan `-o` tidak diberikan.
-- Skrip membuat file temporer di `/tmp/kinfo_*` yang dibersihkan otomatis pada exit.
-- Gunakan `-l <logfile>` untuk menyimpan log aktivitas dan pesan debug.
+## 🧩 Opsi Lengkap
+
+| Opsi | Deskripsi |
+|:------|:-----------|
+| `--module <nama>` | Menentukan modul yang dijalankan. |
+| `-t, --target` | Target domain/IP/URL atau path lokal. |
+| `-w, --wordlist` | Wordlist untuk enumerasi direktori. |
+| `--ftp-list` | File wordlist FTP (user:pass). |
+| `--judi-list` | File keyword untuk deteksi judi online. |
+| `-o, --output-file` | Nama file output (akan tersimpan di `outputkinfo/`). |
+| `-f, --output-format` | Format output: `text` (default) atau `json`. |
+| `-p, --parallel` | Jumlah proses paralel (default: 20). |
+| `-r, --rate-limit` | Delay antar request (detik). |
+| `-l, --logfile` | File log (opsional). |
+| `-d, --debug` | Mode debug dengan output detail. |
+| `-h, --help` | Menampilkan bantuan lengkap. |
 
 ---
 
-## Troubleshooting Singkat (versi 2.6)
-- **Permission denied** → `chmod +x kinfo.sh`  
-- **Missing dependencies** → jalankan `check_dependencies` (scripting) atau install manual paket yang direkomendasikan. Skrip akan exit jika dep wajib tidak ditemukan.  
-- **Modul lokal membutuhkan sudo** → `localnet` untuk melihat nama program di `ss`/`netstat` sering butuh sudo.  
-- **No results dari API** → periksa koneksi, rate-limit, atau layanan API (crt.sh/bufferover/OTX/ThreatCrowd).  
-- **FTP gagal** → server mungkin FTPS; gunakan `lftp` atau `curl --ftp-ssl` eksternal.  
-- **False positives** → verifikasi manual; simpan response body atau screenshot untuk bukti.  
-- Untuk debug verbose: tambahkan `-d -l kinfo_debug.log` dan kirim log untuk analisis.
+## 📁 Struktur Output
+
+Hasil pemindaian otomatis tersimpan di folder:
+```
+outputkinfo/
+ ├── kinfo_subdomain_1730788322.txt
+ ├── kinfo_filescan_1730788345.txt
+ └── kinfo_localnet_1730788367.txt
+```
+
+Setiap file mencatat waktu scan, target, hasil, dan log penting.
 
 ---
 
-## Etika & Legal
-Gunakan **hanya** untuk audit internal, pentest dengan izin, atau penelitian. Pemindaian tanpa izin dapat menimbulkan konsekuensi hukum.
+## 🧠 Tips Penggunaan
+
+- Gunakan **mode JSON (`-f json`)** untuk integrasi dengan tools SIEM atau parser log.
+- Gunakan **`--parallel`** untuk mempercepat enumerasi target besar.
+- Jalankan **modul lokal secara berkala** di server produksi untuk deteksi dini (terutama `filescan` & `localnet`).
+- Aktifkan **mode debug (`-d`)** saat melakukan troubleshooting.
 
 ---
 
-## Changelog Singkat
-- **v2.6** (5 Nov 2025) — Tambahan Local IR Modules (13–15), refactor logging/tempfile/cleanup, perbaikan envscan, CLI non-interaktif, JSON output, paralelisasi & rate-limit.  
-- **v2.5** — Refactor besar, paralelisasi, mode non-interaktif, JSON, logging, perluasan envscan.  
-- Versi awal — fitur enumerasi, webshell scan, Zone-H grab, FTP utilities.
+## 🔒 Contoh Output
+
+**Subdomain Scan (Text Mode)**
+```
+KINFO Enhanced Subdomain Finder Results
+Target: example.com
+Total Found (API): 21 | DNS Live: 12 | HTTP Live: 8
+====================================
+[200] https://admin.example.com
+[403] https://api.example.com
+```
+
+**Filescan (JSON Mode)**
+```json
+[
+  {
+    "file": "/var/www/html/shell.php",
+    "size": "14K",
+    "modified": "2025-11-05 09:45:12",
+    "matched_keyword": "eval"
+  }
+]
+```
 
 ---
 
-## Ingin bantuan tambahan?
-Saya bisa langsung:
-- Menambahkan `LICENSE` (MIT) file,  
-- Menyisipkan `CONTRIBUTING.md` dan `CODE_OF_CONDUCT.md`,  
-- Membuat contoh `wordlist.txt` / `judilist.txt` terkurasi kecil untuk testing, atau  
-- Membuat PR patch untuk menambahkan `--config` (read config file) atau contoh systemd service.
+## 🧩 Arsitektur Fungsional
 
-Ketik singkat (mis. `license`, `contrib`, `wordlist`)—saya akan buatkan file siap pakai.
+```
+KINFO.sh
+│
+├── Remote Modules
+│   ├── Subdomain Finder
+│   ├── Directory Enum
+│   ├── FTP Brute
+│   ├── Judi Finder
+│   ├── Reverse IP
+│   ├── Webshell / ENV / WP Checker
+│   └── Zone-H Grabber
+│
+├── Local Modules
+│   ├── FileScan
+│   ├── LocalPS
+│   ├── LocalNet
+│   ├── LocalUsers
+│   ├── LocalCron
+│   └── Mini FTP Client
+│
+└── Output Manager → outputkinfo/
+```
+
+---
+
+## 🧩 Troubleshooting Umum
+
+| Masalah | Penyebab | Solusi |
+|:---------|:----------|:--------|
+| ❌ `Dependensi wajib tidak ditemukan` | `curl` / `grep` / `jq` belum terinstall | `sudo apt install curl grep jq` |
+| ⚠️ Tidak ada hasil scan | Rate limit terlalu tinggi atau site block UA | Gunakan `--rate-limit 1` atau ubah `User-Agent` |
+| 🔒 Gagal akses folder output | Permission `outputkinfo` belum dibuat | Jalankan dengan `sudo` atau ubah izin folder |
+| 🧩 Mode interaktif tidak muncul | Terminal tidak mendukung `read` | Jalankan di shell interaktif (bash/zsh) |
+
+---
+
+## 🧰 Kontributor
+
+- **Saeful Bahri (CSIRT Diskominfo Subang)** — pengembang utama & integrasi keamanan.  
+- **Gemini Refactor Team** — refactoring v2.7, modularisasi, JSON, dan parallel scan.
+
+---
+
+## 📜 Lisensi
+
+Distribusi di bawah lisensi **MIT License**  
+> Bebas digunakan, dimodifikasi, dan dikembangkan dengan tetap mencantumkan kredit pembuat asli.
+
+---
+
+### 💬 Kontak
+📎 Telegram: [@jejakintel](https://t.me/jejakintel)  
+📧 Email: csirt@subang.go.id  
+🌐 Website: [https://cloud.subang.go.id/](https://cloud.subang.go.id/)
+
+---
+
+> “KINFO bukan hanya scanner, tapi juga detektor intuisi — bantu tim IR berpikir lebih cepat dari serangan.”
