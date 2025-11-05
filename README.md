@@ -27,7 +27,7 @@
 
 ```bash
 # Clone repository
-git clone https://github.com/yourrepo/kinfo.git
+git clone https://github.com/kangaman/kinfo.git
 cd kinfo
 
 # Jadikan executable
