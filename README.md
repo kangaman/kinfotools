@@ -65,16 +65,3 @@ sudo apt install -y curl grep findutils coreutils jq dnsutils netcat ftp whois
 **## Instalasi**
 **Minimal (harus ada):**
 - `bash`, `curl`, `grep`, `find`, `stat`, `sed`, `awk`, `sort`, `uniq`, `wc`
-
-**Direkomendasikan (dipakai fitur tertentu):**
-- `jq` (parsing JSON)  
-- `nslookup` / `dig` / `host`  
-- `nc` (netcat)  
-- `ftp` (client)  
-- `whois`
-
-**Instalasi dependensi (Debian/Ubuntu contoh):**
-```bash
-sudo apt update
-sudo apt install -y curl grep findutils coreutils jq dnsutils netcat ftp whois
-
