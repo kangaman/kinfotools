@@ -1,11 +1,3 @@
-+===========================+
-| _  _____ _   _ _____ ___  |
-| |/ /_ _| \ | |  ___/ _ \ |
-| ' / | ||  \| | |_ | | | |
-| . \ | || |\  |  _|| |_| |
-|_|\_\___|_| \_|_|   \___/ |
-+===========================+
-
 # 🧠 KINFO v2.7 — Incident Response & Pentest Toolkit
 
 ![Bash](https://img.shields.io/badge/Language-Bash-blue?logo=gnu-bash)
