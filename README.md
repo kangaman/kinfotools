@@ -60,7 +60,7 @@ Untuk investigasi mesin lokal (host tempat script dijalankan).
 
 ```bash
 # Clone repo atau copy script
-git clone https://github.com/yourrepo/kinfo.git
+git clone https://github.com/kangaman/kinfotools.git
 cd kinfo
 
 # Jadikan executable
