@@ -240,8 +240,6 @@ Distribusi di bawah lisensi **MIT License**
 
 ### 💬 Kontak
 📎 Telegram: [@jejakintel](https://t.me/jejakintel)  
-📧 Email: csirt@subang.go.id  
-🌐 Website: [https://cloud.subang.go.id/](https://cloud.subang.go.id/)
 
 ---
 
