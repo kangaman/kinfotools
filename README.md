@@ -1,219 +1,198 @@
 # KINFO — Incident Response & Recon Toolkit
 
 ```
-  _  __ _       ____  
- | |/ /(_)_ __ |  _ \ ___  _ __    ___
- | ' / | | '_ \| |_) / _ \| '_ \  / _ \
- | . \ | | | | |  _ < (_) | | | || (_) |
- |_|\_\|_|_| |_|_| \_\___/|_| |_| \___/
++===========================+
+| _  _____ _   _ _____ ___  |
+| |/ /_ _| \ | |  ___/ _ \ |
+| ' / | ||  \| | |_ | | | |
+| . \ | || |\  |  _|| |_| |
+|_|\_\___|_| \_|_|   \___/ |
++===========================+
 ```
 
-**Versi:** `1.3` · **Update:** `5 November 2025` · **Kontak:** `https://jejakintel.t.me/`
+**Versi:** `2.6` · **Update:** `5 November 2025` · **Contact:** `https://jejakintel.t.me/`
 
-> Ringkas, sopan, dan efektif — KINFO membantu tim CSIRT melakukan triage awal, enumerasi, dan pemeriksaan cepat.  
-> **Catatan penting:** gunakan hanya pada sistem yang kamu miliki atau yang telah mendapatkan izin eksplisit.
-
----
-
-## Daftar Isi
-- [Tentang KINFO](#tentang-kinfo)  
-- [Fitur Utama](#fitur-utama)  
-- [Persyaratan & Dependensi](#persyaratan--dependensi)  
-- [Instalasi](#instalasi)  
-- [Penggunaan Cepat (Examples)](#penggunaan-cepat-examples)  
-- [Struktur File & Wordlists](#struktur-file--wordlists)  
-- [Alur Kerja Rekomendasi (Triage)](#alur-kerja-rekomendasi-triage)  
-- [Tips Pengoperasian Aman](#tips-pengoperasian-aman)  
-- [Troubleshooting](#troubleshooting)  
-- [Pengembangan & Kontribusi](#pengembangan--kontribusi)  
-- [Lisensi](#lisensi)  
-- [Changelog Singkat](#changelog-singkat)
+> KINFO adalah toolkit cepat dan modular untuk tim respons insiden (CSIRT) dan pentester — fokus pada reconnaissance, triage lokal & jarak jauh, dan pemeriksaan cepat.  
+> **Penting:** gunakan **hanya** pada sistem yang Anda miliki atau yang sudah mendapat izin eksplisit.
 
 ---
 
-## Tentang KINFO
-KINFO adalah toolkit berbasis **Bash** (menu-driven CLI) yang dirancang untuk membantu tim respons insiden dan penetration tester pada tahap reconnaissance dan triage awal. Fitur utamanya: pengumpulan subdomain, enumerasi direktori/file, pemeriksaan `.env`/debug, deteksi webshell, pengecekan WordPress registration, reverse IP lookup, dan utilitas FTP sederhana.
+## Ringkasan versi 2.6 — Apa yang baru / diperbarui
+Versi `2.6` membawa beberapa perbaikan dan fitur baru dibanding versi sebelumnya (2.5):
 
-Singkatnya: **cepat menemukan masalah → lakukan verifikasi manual → laporkan**.  
-Humor singkat: alat ini cerdas, bukan garang—biar investigasi rapi, bukan rusuh.
+- **Modul Local IR baru:** ditambahkan modul lokal untuk investigasi in-situ:
+  - `localps` (Modul 13) — pengecekan proses mencurigakan (user web server umum).
+  - `localnet` (Modul 14) — pengecekan koneksi jaringan (LISTEN / ESTABLISHED) menggunakan `ss`/`netstat`.
+  - `localusers` (Modul 15) — pemeriksaan user (uid >=1000 / uid 0) dan crontab root/current user.
+- **Refactor & Stabilitas:** perapihan struktur kode, generalisasi helper (logging, temp files, cleanup), dan validasi dependensi yang lebih jelas.
+- **Mode non-interaktif (CLI):** jalankan per-modul lewat flags (`--module`, `--target`, dsb.) untuk automasi / CI.
+- **Output JSON & Logging:** dukungan output `json` untuk integrasi SIEM / pipeline; logging terpisah dengan opsi `--logfile`.
+- **Paralelisasi & Rate-limit:** semua modul remote/lokal menggunakan `xargs -P` paralel dan opsi `--parallel/-p` serta `--rate-limit/-r`.
+- **ENV & Debug Scanner diperluas (modul 9):** daftar paths diperbanyak (backup .sql, zip/rar, banyak subfolder backup/sql/uploads, swagger/actuator/health, dll).
+- **Cleanup file temporer & trap EXIT:** file temporer dikelola rapi dan dihapus saat skrip keluar.
+- **Mini FTP client (interaktif)** tetap ada untuk akses cepat, plus peringatan jika modul FTP hanya interaktif.
+- **Peningkatan user-agent & dork user-agent** untuk modul pencarian konten (bing dork).
 
 ---
 
-## Fitur Utama
-- Banner & menu interaktif untuk kemudahan penggunaan.  
-- **Enhanced Subdomain Finder** (crt.sh, Bufferover, OTX, ThreatCrowd, SecurityTrails + resolving).  
-- **Directory / File Enumeration** berdasar `wordlist.txt`.  
-- **FTP Bruteforce** via `ftpbrute.txt` (format `user:pass`).  
-- **Judi Online Finder** (pencarian kata kunci via `judilist.txt`).  
-- **Reverse IP Lookup** (viewdns.info fallback / whois).  
-- **Auto HTTPS & Security Headers Check** (HSTS, CSP, X-Frame-Options, dll).  
-- **Webshell Finder**: remote path scan & lokal file enumeration (pattern-based).  
-- **ENV & Debug Scanner**: temukan `.env`, `phpinfo`, backup DB, swagger, dll.  
-- **WordPress Registration Finder**.  
-- **Grab Domain dari Zone-H**.  
-- **Mini Shell FTP Client** (wrapper sederhana untuk `ftp`).
+## Fitur Utama (ringkas)
+- Enhanced Subdomain Finder (crt.sh, bufferover, OTX, ThreatCrowd) + DNS & HTTP live-check.  
+- Directory / File Enumeration dengan wordlist + ukuran file (size) dan HTTP status.  
+- FTP bruteforce (wordlist `username:password`) dan mini FTP client.  
+- Judi Online Finder (keywords + Bing dork).  
+- Reverse IP lookup (viewdns.info + fallback whois).  
+- Extract domain & security header check (HSTS, CSP, X-Frame-Options).  
+- Webshell Finder: remote dirscan + local file enumeration (pattern-based).  
+- ENV & Debug Scanner (luas: .env, backup.sql, swagger, actuator, dll.).  
+- WordPress registration finder.  
+- Zone-H grabber.  
+- Local IR modules: process, network, users & cron checks.  
+- Non-interactive CLI, JSON output, logging, parallel jobs, rate limiting.  
 
 ---
 
 ## Persyaratan & Dependensi
-**Minimal (harus ada):**
-- `bash`, `curl`, `grep`, `find`, `stat`, `sed`, `awk`, `sort`, `uniq`, `wc`
+**Wajib:** `bash`, `curl`, `grep`, `find`, `stat`, `sed`, `sort`, `uniq`, `wc`, `mktemp`, `xargs`  
+**Direkomendasikan / Opsional (mempengaruhi fitur tertentu):** `jq`, `nslookup`/`dig`/`host`, `nc` (netcat), `ftp`, `whois`, `ps`, `ss`/`netstat`, `sudo` (untuk localnet details)
 
-**Direkomendasikan (dipakai fitur tertentu):**
-- `jq` (parsing JSON)  
-- `nslookup` / `dig` / `host`  
-- `nc` (netcat)  
-- `ftp` (client)  
-- `whois`
-
-**Instalasi dependensi (Debian/Ubuntu contoh):**
+Contoh instalasi (Debian/Ubuntu):
 ```bash
 sudo apt update
-sudo apt install -y curl grep findutils coreutils jq dnsutils netcat ftp whois
+sudo apt install -y curl grep findutils coreutils jq dnsutils netcat ftp whois procps iproute2
 ```
+
+> Skrip akan memeriksa dependensi wajib saat startup dan menolak berjalan jika yang wajib tidak ditemukan. Dependensi opsional hanya akan memperingatkan.
 
 ---
 
 ## Instalasi
-
-1. Clone atau simpan `kinfo.sh` di folder kerja repositori.  
+1. Simpan `kinfo.sh` di folder kerja:
+```bash
+cp kinfo.sh ~/tools/kinfo/kinfo.sh
+cd ~/tools/kinfo
+```
 2. Jadikan executable:
 ```bash
 chmod +x kinfo.sh
 ```
-3. Jalankan:
+3. (Opsional) Siapkan wordlists di direktori yang sama:
+- `wordlist.txt` — untuk `direnum`, `webscan` fallback  
+- `ftpbrute.txt` — untuk `ftpbrute` (format `user:pass`)  
+- `judilist.txt` — untuk `judi` module
+
+4. Jalankan:
+- Interaktif:
 ```bash
 ./kinfo.sh
-# atau
-bash kinfo.sh
+```
+- Non-interaktif (example):
+```bash
+./kinfo.sh --module subdomain --target example.com -f json -o subdomains.json
 ```
 
 ---
 
-## Penggunaan Cepat (Examples)
+## Cara Penggunaan — Interaktif & CLI (Non-Interaktif)
 
-Setelah menjalankan `./kinfo.sh`, ikuti prompt menu.
+### Mode Interaktif (menu)
+Jalankan `./kinfo.sh` tanpa argumen. Menu akan menampilkan pilihan:
+- REMOTE SCANNER: 1..11 (subdomain, direnum, ftpbrute, judi, reverseip, extract, webscan, envscan, wpcheck, zoneh)
+- LOCAL IR: 8,12..15 (filescan, ftpclient, localps, localnet, localusers)
+- Pilih angka, masukkan target ketika diminta.
 
-### 1) Enhanced Subdomain Finder
-- Pilih `1` → masukkan `example.com`.  
-- Output: `/tmp/subdomains_example.com.txt` dan `kinfo_subdomains_example.com_<timestamp>.txt`.
+Output interaktif disimpan sementara ke `/tmp/kinfo_interactive_<timestamp>.txt`.
 
-### 2) Directory / File Enumeration
-- Pilih `2` → masukkan `https://sub.example.com`.  
-- Pastikan `wordlist.txt` tersedia di folder yang sama.  
-- Hasil disimpan: `kinfo_enum_<timestamp>.txt`.
-
-### 3) FTP Bruteforce
-- Pilih `3` → masukkan host (port default `21`).  
-- Pastikan `ftpbrute.txt` berformat `username:password`.  
-- Hasil sukses disimpan: `kinfo_ftp_success_<host>_<timestamp>.txt`.
-
-### 7) Webshell Finder (Dir Scan - remote)
-- Pilih `7` → masukkan target URL.  
-- Skrip akan memeriksa path umum untuk admin/webshell; hasil di `/tmp/webscan_<timestamp>.txt`.
-
-### 8) Webshell Finder (File Enumeration - lokal)
-- Pilih `8` → masukkan path lokal (atau tekan Enter untuk `.`).  
-- Skrip memeriksa file PHP/ASP/JSP untuk pola berbahaya (`eval`, `base64_decode`, `gzinflate`, `system`, dll.).
-
-> Untuk automasi / CI: pertimbangkan menambahkan mode non-interaktif (`--target`, `--wordlist`, `--output`) pada pengembangan berikutnya.
-
----
-
-## Struktur File & Wordlists
-
-Letakkan file pendukung di direktori yang sama dengan `kinfo.sh`:
-
-- `wordlist.txt` — daftar path direktori/file (satu entri per baris).  
-- `ftpbrute.txt` — `username:password` per baris untuk brute.  
-- `judilist.txt` — kata kunci untuk mendeteksi konten judi.
-
-**Contoh `wordlist.txt`:**
-```
-admin
-login
-wp-admin
-uploads
-config.php
-.env
-backup.zip
+### Mode Non-Interaktif (CLI)
+Contoh umum:
+```bash
+./kinfo.sh --module <module> -t <target> -o <output_file> -f json -p 30 -r 0.5 -l kinfo.log
 ```
 
----
-
-## Output & temp files (lokasi)
-
-- `/tmp/subdomains_<domain>.txt`  
-- `kinfo_subdomains_<domain>_<timestamp>.txt`  
-- `/tmp/webscan_<timestamp>.txt`  
-- `kinfo_enum_<timestamp>.txt`
-
-> Catatan: pindahkan hasil dari `/tmp` jika ingin menyimpan permanen — `/tmp` biasanya dibersihkan otomatis oleh sistem.
-
----
-
-## Alur Kerja Rekomendasi (Triage cepat)
-
-1. Jalankan **Subdomain Finder** (menu `1`) untuk mendapatkan cakupan domain.  
-2. Pilih subdomain prioritas → jalankan **Directory Enumeration** (menu `2`) memakai `wordlist.txt` kecil dahulu.  
-3. Jalankan **ENV & Debug Scanner** (menu `9`) untuk memeriksa kebocoran konfigurasi.  
-4. Jika punya akses ke kode sumber: jalankan **Webshell File Enumeration** (menu `8`).  
-5. Catat temuan, verifikasi manual (tangkap layar / log server), dan buat laporan insiden resmi.
+Flags penting:
+- `--module <name>` : modul, mis. `subdomain`, `direnum`, `filescan`, `envscan`, `localps`, `localnet`, `localusers`  
+- `-t, --target <str>` : domain/URL/IP atau path lokal (untuk `filescan`)  
+- `-w, --wordlist <file>` : wordlist path (default: `./wordlist.txt`)  
+- `--ftp-list <file>` : ftp list path (default: `./ftpbrute.txt`)  
+- `--judi-list <file>` : judi list path (default: `./judilist.txt`)  
+- `-o, --output-file <file>` : simpan output; default `kinfo_<module>_<ts>.txt` (text) atau `/dev/stdout` bila json  
+- `-f, --output-format <fmt>` : `text` (default) atau `json`  
+- `-p, --parallel <num>` : jumlah proses paralel (default: 20)  
+- `-r, --rate-limit <sec>` : jeda antar permintaan (default: 0)  
+- `-l, --logfile <file>` : simpan log (format teks timestamped)  
+- `-d, --debug` : aktifkan mode debug (verbose)  
+- `-h, --help` : tampilkan pesan bantuan
 
 ---
 
-## Tips Pengoperasian Aman
+## Contoh Perintah
 
-- **Hanya** gunakan pada sistem milikmu atau yang memiliki izin eksplisit.  
-- Mulai dari wordlist **kecil → medium → besar** agar tidak memicu proteksi.  
-- Terapkan delay / rate-limit bila target sensitif.  
-- Simpan semua bukti (screenshot, response body, timestamp) untuk audit.  
-- Verifikasi semua temuan secara manual sebelum menyatakan adanya kompromi.
+1. Enhanced Subdomain Finder (JSON output):
+```bash
+./kinfo.sh --module subdomain --target example.com -f json -o subdomains.json
+```
+
+2. Directory enumeration (with custom wordlist, 50 parallel, 0.2s delay):
+```bash
+./kinfo.sh --module direnum --target https://sub.example.com -w ./wordlist.txt -p 50 -r 0.2 -o found.txt
+```
+
+3. Local file scan (scan kode sumber web lokal):
+```bash
+./kinfo.sh --module filescan --target /var/www/html -p 30 -f json -o suspicious_files.json
+```
+
+4. Local network & process checks:
+```bash
+# check processes (localps)
+./kinfo.sh --module localps
+# check network (may require sudo)
+sudo ./kinfo.sh --module localnet -o localnet.txt
+# check users & cron
+./kinfo.sh --module localusers -o users_cron.txt
+```
+
+5. Run ENV scanner with log:
+```bash
+./kinfo.sh --module envscan --target example.com -o env_findings.txt -l kinfo_env.log
+```
 
 ---
 
-## Troubleshooting
-
-- **Permission denied** → jalankan `chmod +x kinfo.sh`.  
-- **Missing command** → instal dependensi yang dibutuhkan (`curl`, `jq`, `ftp`, `nc`, dll.).  
-- **Wordlist tidak ditemukan** → pastikan `wordlist.txt` ada di folder eksekusi.  
-- **API rate limit / response kosong** → beri jeda, atau gunakan API key bila tersedia.  
-- **False positives** → periksa body response; lakukan verifikasi manual.
+## Output & Lokasi File
+- Output default untuk non-interactive: `kinfo_<module>_<timestamp>.txt` (text) atau `/dev/stdout` jika `-f json` dan `-o` tidak diberikan.
+- Skrip membuat file temporer di `/tmp/kinfo_*` yang dibersihkan otomatis pada exit.
+- Gunakan `-l <logfile>` untuk menyimpan log aktivitas dan pesan debug.
 
 ---
 
-## Pengembangan & Kontribusi
-
-Saran peningkatan prioritas:
-- Mode non-interaktif (CLI args / `--target`, `--wordlist`, `--output`).  
-- Opsi `--delay` / rate-limiting per request.  
-- Output terstruktur (JSON / CSV) untuk integrasi SIEM.  
-- Dependency-check awal dan installer (`Makefile` atau `setup.sh`).
-
-Jika mau, saya dapat membantu membuat PR contoh untuk:
-- Arg parsing sederhana (`getopts`),  
-- Menambahkan output JSON untuk modul tertentu, atau  
-- Menyediakan `wordlist` terkurasi kecil untuk testing.
+## Troubleshooting Singkat (versi 2.6)
+- **Permission denied** → `chmod +x kinfo.sh`  
+- **Missing dependencies** → jalankan `check_dependencies` (scripting) atau install manual paket yang direkomendasikan. Skrip akan exit jika dep wajib tidak ditemukan.  
+- **Modul lokal membutuhkan sudo** → `localnet` untuk melihat nama program di `ss`/`netstat` sering butuh sudo.  
+- **No results dari API** → periksa koneksi, rate-limit, atau layanan API (crt.sh/bufferover/OTX/ThreatCrowd).  
+- **FTP gagal** → server mungkin FTPS; gunakan `lftp` atau `curl --ftp-ssl` eksternal.  
+- **False positives** → verifikasi manual; simpan response body atau screenshot untuk bukti.  
+- Untuk debug verbose: tambahkan `-d -l kinfo_debug.log` dan kirim log untuk analisis.
 
 ---
 
-## Lisensi
-
-Direkomendasikan: **MIT License** (ringan dan permisif).  
-Jika setuju, tambahkan file `LICENSE` berisi teks MIT dan sertakan header lisensi di file skrip.
+## Etika & Legal
+Gunakan **hanya** untuk audit internal, pentest dengan izin, atau penelitian. Pemindaian tanpa izin dapat menimbulkan konsekuensi hukum.
 
 ---
 
 ## Changelog Singkat
-
-- **v1.3** (5 Nov 2025) — Banner, menu interaktif, enhanced subdomain & utilitas FTP.  
-- Fitur: enumerasi file, webshell scan, ENV & debug checks, Zone-H grab.
-
----
-
-## Penutup & Catatan Hukum
-
-KINFO disediakan sebagai alat bantu untuk riset keamanan dan respons insiden. Penggunaan tanpa izin adalah tanggung jawab pengguna dan dapat melanggar hukum. Pengembang **tidak** bertanggung jawab atas penyalahgunaan.
+- **v2.6** (5 Nov 2025) — Tambahan Local IR Modules (13–15), refactor logging/tempfile/cleanup, perbaikan envscan, CLI non-interaktif, JSON output, paralelisasi & rate-limit.  
+- **v2.5** — Refactor besar, paralelisasi, mode non-interaktif, JSON, logging, perluasan envscan.  
+- Versi awal — fitur enumerasi, webshell scan, Zone-H grab, FTP utilities.
 
 ---
 
+## Ingin bantuan tambahan?
+Saya bisa langsung:
+- Menambahkan `LICENSE` (MIT) file,  
+- Menyisipkan `CONTRIBUTING.md` dan `CODE_OF_CONDUCT.md`,  
+- Membuat contoh `wordlist.txt` / `judilist.txt` terkurasi kecil untuk testing, atau  
+- Membuat PR patch untuk menambahkan `--config` (read config file) atau contoh systemd service.
+
+Ketik singkat (mis. `license`, `contrib`, `wordlist`)—saya akan buatkan file siap pakai.
