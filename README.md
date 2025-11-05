@@ -177,12 +177,8 @@ Bebas digunakan, dimodifikasi, dan dikembangkan — selama mencantumkan kredit p
 
 ## 👨‍💻 Pengembang
 
-- **Saeful Bahri** — Pengembang utama & integrasi CSIRT Diskominfo Subang  
+- **Saeful Bahri** — Pengembang utama 
 - Referensi pengembangan `collectdata`: [adpermana (GitHub)](https://github.com/adpermana)
-
-📎 Telegram: [@jejakintel](https://t.me/jejakintel)  
-🌐 Website: [https://cloud.subang.go.id/](https://cloud.subang.go.id/)  
-📧 Email: csirt@subang.go.id  
 
 ---
 
