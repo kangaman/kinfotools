@@ -2,55 +2,86 @@
 
 ## 📌 Versi 1.4 (Desember 2025)
 **Status:** Stable Release — Enhanced Security Edition  
-**Kode dasar:** Optimasi penuh engine scanning & peningkatan IR Collector
+**Kode dasar:** Optimalisasi penuh pada engine scanning, IR Collector, dan wordlist enterprise
 
-### ✨ Fitur Baru
+### ✨ Ringkasan Perubahan Utama
+- Peningkatan besar pada **engine subdomain**, kini multi-engine + wildcard bypass.  
+- **WP Deep Detect** untuk analisis WordPress tingkat lanjut.  
+- **Judi/Slot Scanner v2** dengan wordlist premium (2024–2025).  
+- **Webshell Finder Ultimate** dengan heuristik baru.  
+- IR Collector ditingkatkan dengan artefak forensik lengkap.  
+- Wordlist FTP & judi diperbarui menjadi setara enterprise.  
+- Reverse IP kini multi-source OSINT.  
+- Struktur output dan validasi input jauh lebih kuat.
+
+---
+
+### ✨ Fitur Baru v1.4
 | Fitur | Deskripsi |
-|:------|-----------|
-| 🧱 **Subdomain Engine v1.4 (Multi-Engine + Wildcard Detect)** | Engine pemindaian subdomain diperbarui dengan multi-resolver, wildcard bypass, smart wordlist, serta validasi DNS yang lebih akurat. |
-| 🔍 **WP Deep Detect** | Modul WordPress kini mendukung enumerasi user, plugin version check, endpoint brute, serta analisis celah umum WP. |
-| 🧰 **Webshell Finder Ultimate** | Penambahan heuristik nama file, recursive scan lebih agresif, dan integrasi wordlist premium untuk deteksi webshell. |
-| 🎰 **Judi/Slot Deep Scanner v2** | Engine scan judi diperkuat dengan wordlist baru (2024–2025), pola injeksi iframe, pola domain spam, dan analisis folder JS/PHP. |
-| 🔐 **Credential Hunter v1.4** | Pendeteksian kebocoran `.env`, API key, token, config-file, dan secret variables lebih akurat. |
-| 🧠 **IR Collector v1.4 (Artefak Forensik Lengkap)** | Pengumpulan log, proses, network, cron, hashing file sensitif, serta profiling server kini jauh lebih detail dan terstruktur. |
-| 💾 **Output Manager v2.0** | Struktur folder lebih rapi, pemisahan kategori modul, dan kompatibel penuh dengan format JSON SIEM (Wazuh/ELK/Splunk). |
-| 📁 **Wordlist Upgrade (FTP & Judi)** | Pembaruan besar pada `ftpbrute.txt` dan `judilist.txt`, termasuk default credential IoT, VPN appliances, SCADA, email servers, serta slot/judi populer. |
-| 🌐 **Reverse IP Multi-Source** | Lookup domain kini menggunakan beberapa sumber OSINT untuk hasil lebih kaya dan akurat. |
+|:------|:-----------|
+| 🧱 **Subdomain Engine v1.4 (Multi-Engine + Wildcard Detect)** | Resolusi DNS lebih akurat, multi-sumber, bypass wildcard, dan smart wordlist. |
+| 🔍 **WordPress Deep Detect** | Plugin enumeration, user enum, endpoint brute (`xmlrpc`, `wp-login`, dll). |
+| 🧰 **Webshell Finder Ultimate** | Recursive scan agresif dengan tambahan heuristik nama file dan wordlist premium. |
+| 🎰 **Judi/Slot Deep Scanner v2** | Deteksi iframe, domain spam, JS injector, dan keyword judi terbaru. |
+| 🔐 **Credential Hunter 1.4** | Deteksi kebocoran API key, token, config, env-file, dan secret variables. |
+| 🧠 **IR Collector 1.4** | Mengumpulkan artefak sistem lengkap (logs, cron, hash, network, user trace). |
+| 💾 **Output Manager v2.0** | Struktur output lebih modular, kompatibel penuh dengan SIEM. |
+| 📁 **Wordlist Engine Premium** | Wordlist FTP & judi diperluas mencakup IoT, VPN appliances, SCADA, DB, CMS, dan slot terbaru. |
+| 🌐 **Reverse IP Multi-Source** | Lookup domain menggunakan kombinasi OSINT untuk hasil yang lebih lengkap. |
 
 ---
 
-### 🪄 Peningkatan
-- Optimalisasi performa multi-thread (`xargs -P`) pada scanning remote.  
-- Validasi target lebih ketat untuk mengurangi false-positive.  
-- Peningkatan UI CLI: tampilan lebih bersih dan profesional.  
-- Perbaikan pola deteksi konten judi & webshell melalui wordlist heuristic baru.  
-- Penambahan sanitasi input pada modul CLI.  
-- Revisi banner & struktur menu agar lebih mudah digunakan.
+### 🪄 Peningkatan v1.4
+- Performansi parallel scan lebih stabil (`xargs -P`).  
+- Validasi input CLI lebih ketat dan aman.  
+- UI CLI diperhalus, tampilan log lebih profesional.  
+- Peningkatan akurasi deteksi konten judi/webshell.  
+- Struktur module remote/local menjadi lebih modular.  
+- Banner, menu, dan mode interaktif diperbarui.  
+- Pengurangan false-positive di seluruh modul pemindaian.
 
 ---
 
-### 🧠 Catatan Teknis
-- IR Collector menghasilkan artefak forensik lengkap dalam format **JSON + TXT**.  
-- Mode remote scanner kini lebih stabil saat parallel execution.  
-- Subdomain Engine v1.4 kini menggunakan resolusi DNS cerdas dengan retry otomatis.  
-- Disarankan menjalankan IR Mode sebagai **root** untuk hasil penuh.
+### 🧠 Catatan Teknis v1.4
+- IR Collector kini menghasilkan artefak **JSON + TXT** yang bisa dikonsumsi Wazuh/ELK/Splunk.  
+- Subdomain Engine melakukan retry otomatis dan validasi DNS multi-level.  
+- Direkomendasikan menjalankan IR Mode sebagai **root** untuk hasil maksimal.  
+- Semua modul mendukung sanitasi input untuk mencegah karakter berbahaya.  
+- Output terstruktur berdasarkan timestamp + kategori modul.
 
 ---
 
-## 🔍 Ringkasan Perbandingan (1.3 → 1.4)
+## 📌 Versi 1.3 (November 2025) — Ringkasan Singkat
+
+### ✨ Highlight Fitur v1.3
+- Penambahan **Collect Data (Forensic Collector)** untuk analisis awal insiden.  
+- Output JSON standar untuk semua modul.  
+- Parallel execution dasar (`xargs -P`).  
+- Menu utama dipisah menjadi **Remote** dan **Local IR Toolkit**.  
+- Dependency checker dengan tampilan berwarna.  
+- Logging & debug mode mulai diperkenalkan.  
+- Script di-refactor menjadi modular.
+
+### 🧠 Catatan Penting v1.3
+- Fondasi utama untuk arsitektur v1.4.  
+- Kompatibel dengan SIEM seperti Wazuh.  
+- Error handling signifikan lebih baik dibanding versi sebelumnya.
+
+---
+
+## 🔍 Perbandingan Cepat (1.3 → 1.4)
 | Aspek | v1.3 | v1.4 |
 |:-------|:------|:------|
 | **Subdomain Engine** | Multi-thread dasar | Multi-engine, wildcard detect, smart resolver |
 | **Reverse IP** | Single source | Multi-source OSINT |
-| **Judi/Slot Scanner** | Wordlist standar | Wordlist premium + iframe + domain spam |
-| **Webshell Finder** | DB kecil | Ultimate heuristik + recursive analysis |
-| **WP Scanner** | Basic check | Deep Detect (plugin, user enum, endpoint scan) |
-| **IR Collector** | Basic artefak | Artefak lengkap (logs, hash, network, cron, env) |
-| **Credential Hunter** | Env scan dasar | API key/token/config leak detector |
-| **Wordlist Engine** | Default | Enterprise FTP list + Premium Judi list |
-| **Output Manager** | Auto-save | Struktur folder modular v2.0 |
-| **Keamanan Argumen** | Minimal | Input validation + sanitasi |
-| **Accuracy** | Baik | Sangat tinggi, error & FP menurun drastis |
+| **Judi/Slot Scanner** | Wordlist standar | Premium wordlist + iframe + domain spam |
+| **Webshell Finder** | DB kecil | Heuristik kuat + recursive scan |
+| **WP Scanner** | Fitur dasar | Deep detect (plugin, enum, endpoint brute) |
+| **IR Collector** | Artefak dasar | Artefak lengkap & siap SIEM |
+| **Credential Hunter** | Env dasar | API key/token/config leaks |
+| **Output Manager** | Auto-save | Modular Output v2.0 |
+| **Input Validation** | Minimal | Ketat (anti-bad characters) |
+| **Akurasi** | Baik | Sangat tinggi |
 
 ---
 
@@ -60,4 +91,4 @@ Kontribusi referensi `collectdata`: adpermana (GitHub)
 
 ---
 
-> “KINFO 1.4 dirancang bukan hanya untuk menemukan celah, tetapi untuk memahami pola serangan, mengungkap artefak tersembunyi, dan memberikan visibilitas mendalam bagi tim respons insiden modern.”
+> **“KINFO 1.4: Lebih Cerdas, Lebih Cepat, Lebih Dalam”**
