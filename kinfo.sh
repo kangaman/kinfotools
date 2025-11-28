@@ -617,43 +617,107 @@ run_module_judi() {
     fi
 }
 
-# --- [R5] REVERSE IP LOOKUP ---
+# --- [R5] REVERSE IP LOOKUP (v1.4 Multi-Source) ---
 run_module_reverseip() {
-    log_info "Memulai Reverse IP Lookup..."
+    log_info "Memulai Reverse IP Lookup v1.4 [Multi-Source]..."
+    
+    # --- 1. SETUP & VALIDASI ---
     if [[ -z "$TARGET" ]]; then log_error "Target IP Address diperlukan."; return 1; fi
     local IP="$TARGET"
-    if [[ ! $IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then log_error "Format IP tidak valid: $IP"; return 1; fi
-    log_info "[*] Melakukan reverse IP lookup untuk $IP..."
-    local VDU="https://viewdns.info/reverseip/?host=$IP&t=1"
-    local R; R=$(curl -s "$VDU" -H "User-Agent: $KINFO_USER_AGENT")
-    local TD; TD=$(add_temp_file); echo "$R" | grep -oP '(?<=<td>)[a-zA-Z0-9\-\.]+(?=</td>)' | grep -v "$IP" | sort -u > "$TD"
-    local D; mapfile -t D < "$TD"; local total=${#D[@]}
+    
+    # Validasi Format IP (IPv4 Sederhana)
+    if [[ ! $IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then 
+        log_error "Format IP tidak valid: $IP (Harus berupa IP Address, contoh: 103.10.10.1)"
+        return 1
+    fi
+    
+    log_info "[*] Target IP: $IP"
+    log_info "[*] Mengambil data dari 3 sumber (ViewDNS, HackerTarget, RapidDNS)..."
+    
+    local TFA; TFA=$(add_temp_file)
+    
+    # --- 2. MULTI-SOURCE FETCHING (Parallel) ---
+    
+    # Sumber 1: ViewDNS.info (Sering limit, tapi akurat)
+    (
+        local VDU="https://viewdns.info/reverseip/?host=$IP&t=1"
+        curl -s "$VDU" -H "User-Agent: $KINFO_USER_AGENT" | \
+        grep -oP '(?<=<td>)[a-zA-Z0-9\-\.]+(?=</td>)' >> "$TFA"
+    ) & PID1=$!
+    
+    # Sumber 2: HackerTarget (API Gratis)
+    (
+        curl -s "https://api.hackertarget.com/reverseiplookup/?q=$IP" \
+        -H "User-Agent: $KINFO_USER_AGENT" | \
+        grep -v "API count exceeded" | grep -v "No records found" >> "$TFA"
+    ) & PID2=$!
+    
+    # Sumber 3: RapidDNS (Web Scraping - Database Besar)
+    (
+        curl -s "https://rapiddns.io/sameip/$IP?full=1" \
+        -H "User-Agent: $KINFO_USER_AGENT" | \
+        grep -oP '(?<=<td>)[a-zA-Z0-9.-]+(?=</td>)' | grep -v "Same IP" >> "$TFA"
+    ) & PID3=$!
+    
+    # Tunggu semua proses background selesai
+    wait $PID1 $PID2 $PID3
+    
+    # --- 3. CLEANING & FILTERING ---
+    local TFC; TFC=$(add_temp_file)
+    
+    # Bersihkan, urutkan, hapus duplikat, dan hapus IP target itu sendiri dari daftar
+    sort -u "$TFA" | grep -v "$IP" | sed '/^$/d' > "$TFC"
+    
+    local total; total=$(wc -l < "$TFC")
+    log_info "[+] Lookup selesai. Ditemukan $total domain yang ter-hosting di IP $IP."
+    
+    # Fallback ke WHOIS jika tidak ada domain ditemukan
     if [[ $total -eq 0 ]]; then
-        log_warn "[*] viewdns.info tidak mengembalikan hasil. Mencoba 'whois'..."
+        log_warn "[*] Tidak ada domain ditemukan di sumber pasif." 
+        log_info "[*] Mencoba menarik informasi WHOIS NetBlock..."
+        
         if command -v whois &>/dev/null; then
-            local WR; WR=$(whois "$IP" 2>/dev/null | grep -i "domain\|netname")
-            if [[ -n "$WR" ]]; then log_warn "[!] Informasi terbatas dari WHOIS:"; echo "$WR" > "$TD";
-            else log_error "[!] Tidak ada domain ditemukan untuk IP $IP"; return 1; fi
-        else log_error "[!] 'whois' tidak terinstall."; return 1; fi
+            local WR
+            # Ambil info kepemilikan IP (OrgName, NetName, dll)
+            WR=$(whois "$IP" 2>/dev/null | grep -iE "^(NetName|OrgName|Organization|descr|netname|owner):")
+            
+            if [[ -n "$WR" ]]; then
+                echo "# INFO KEPEMILIKAN IP (WHOIS):" > "$TFC"
+                echo "$WR" >> "$TFC"
+                log_info "[+] Informasi WHOIS ditemukan."
+            else
+                log_error "[!] Tidak ada info domain maupun WHOIS untuk IP $IP"
+            fi
+        else
+            log_warn "[!] Perintah 'whois' tidak terinstall di sistem ini."
+        fi
     fi
-    local OD
+
+    # --- 4. OUTPUT GENERATION ---
     if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        OD=$(jq -n --arg ip "$IP" --argjson domains "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$TD")" '{"ip": $ip, "domains": $domains}')
+        jq -n --arg ip "$IP" --arg total "$total" \
+           --argjson domains "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$TFC")" \
+           '{target_ip: $ip, total_domains_found: $total, domains: $domains}' > "$OUTPUT_FILE"
+           
+        if [[ "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
     else
-        OD=$(cat <<EOF
-Reverse IP Lookup Results
-Target IP: $IP
-Scan Time: $(date)
-==================================
-Domains:
-$(cat "$TD")
-EOF
-)
+        {
+            echo "Reverse IP Lookup Results (v1.4 Multi-Source)"
+            echo "Target IP: $IP"
+            echo "Scan Time: $(date)"
+            echo "Total Domains Found: $total"
+            echo "=================================="
+            cat "$TFC"
+        } > "$OUTPUT_FILE"
+        
+        if [[ "$OUTPUT_FILE" != "/dev/stdout" ]]; then 
+            cat "$OUTPUT_FILE"
+            echo -e "\n[+] Hasil disimpan di: $OUTPUT_FILE"
+        fi
     fi
-    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
-    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
+# --------------------------------------------------------
 # --- [R6] EXTRACT DOMAIN & CHECK HEADERS ---
 run_module_extract() {
     log_info "Memulai Extract Domain & Auto Add HTTPS..."
@@ -858,73 +922,271 @@ run_module_webscan() {
 }
 
 # ------------------------------------------------------
-# --- [R8] ENV & DEBUG METHOD SCANNER ---
+# --- [R8] ENV & DEBUG SCANNER (v1.4 Credential Hunter) ---
+
+# Menggunakan fungsi 'check_path_smart' yang sudah dibuat di modul R7.
+# Pastikan modul R7 sudah diupdate agar fungsi tersebut tersedia.
+
 run_module_envscan() {
-    log_info "Memulai ENV & Debug Method Scanner..."
+    log_info "Memulai ENV & Config Scanner v1.4 [Credential Hunter]..."
+    
+    # --- 1. SETUP & VALIDASI ---
     if [[ -z "$TARGET" ]]; then log_error "Target URL diperlukan."; return 1; fi
     if [[ ! "$TARGET" =~ ^https?:// ]]; then TARGET="https://$TARGET"; fi
     TARGET=$(echo "$TARGET" | sed 's:/*$::')
-    local EF=(".env" ".env.backup" ".env.local" ".env.example" "config/.env" "configuration.php" "settings.php" "database.php" "db.php" "wp-config.php" "config.php" "config/database.yml" ".htpasswd" ".htaccess" "web.config" "debug.php" "phpinfo.php" "info.php" "test.php" "status" "health" "metrics" "actuator" "healthz" "readyz" "swagger" "api-docs" "v1/swagger" "docs" "robots.txt" "sitemap.xml" "server-status" "server-info" "composer.json" "package.json" "Dockerfile" "docker-compose.yml" "requirements.txt" "backup.sql" "db.sql" "database.sql" "data.sql" "dump.sql" "site.sql" "backup.tar.gz" "backup.zip" "backup.rar" "site.tar.gz" "site.zip" "database.zip" "database.tar.gz" "db.zip" "db.tar.gz" "www.zip" "www.tar.gz" "backup/backup.sql" "backup/db.sql" "backup/dump.sql" "backup/backup.zip" "backup/site.zip" "backup/db.zip" "backup/backup.tar.gz" "backups/backup.sql" "backups/db.sql" "backups/dump.sql" "backups/backup.zip" "backups/site.zip" "backups/db.zip" "backups/backup.tar.gz" "sql/backup.sql" "sql/db.sql" "sql/dump.sql" "sql/database.sql" "sql/backup.zip" "sql/db.zip" "files/backup.sql" "files/db.sql" "files/dump.sql" "files/backup.zip" "files/site.zip" "db/dump.sql" "db/db.sql" "db/database.sql" "db/backup.zip" "db/db.zip" "uploads/backup.sql" "uploads/db.sql" "uploads/dump.sql" "uploads/backup.zip" "uploads/site.zip" "_backup/backup.sql" "_backup/db.sql" "_backup/dump.sql" "_backup/backup.zip" "_backup/site.zip" "_db/dump.sql" "_db/db.sql")
-    local total=${#EF[@]}
-    log_info "[*] Memulai pemindaian pada $TARGET ($total path internal, Paralel: $PARALLEL_JOBS)..."
-    local TJL; TJL=$(add_temp_file); local TPL; TPL=$(add_temp_file); printf "%s\n" "${EF[@]}" > "$TPL"
-    export TARGET; export RATE_LIMIT; export KINFO_USER_AGENT; export TJL
-    cat "$TPL" | xargs -P "$PARALLEL_JOBS" -I {} \
-        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$TJL\""
-    local fc; fc=$(wc -l < "$TJL"); log_info "[+] Pemindaian selesai. Ditemukan $fc item."
-    if [[ "$fc" -eq 0 ]]; then log_warn "Tidak ada item yang ditemukan."; return 0; fi
-    local OD
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then OD=$(jq -s '.' "$TJL"); else
-        OD=$(cat <<EOF
-ENV & Debug Scan Results
-Target: $TARGET
-Scan Time: $(date)
-==================================
-$(cat "$TJL" | jq -r '"[\(.status)] \(.url) (Size: \(.size))"' | sort)
-EOF
-)
+    
+    log_info "[*] Target: $TARGET"
+
+    # --- 2. SOFT 404 CALIBRATION ---
+    # Penting agar tidak tertipu halaman 404 kustom
+    log_info "[*] Kalibrasi Soft 404..."
+    local RAND_PATH="kinfo_env_check_$(date +%s)"
+    local IGNORE_SIZE=0
+    
+    local CALIB_DATA
+    CALIB_DATA=$(curl -sL -o /dev/null -w "%{http_code}:%{size_download}" --connect-timeout 5 -H "User-Agent: $KINFO_USER_AGENT" "$TARGET/$RAND_PATH")
+    local CALIB_SC=$(echo "$CALIB_DATA" | cut -d':' -f1)
+    local CALIB_SZ=$(echo "$CALIB_DATA" | cut -d':' -f2)
+
+    if [[ "$CALIB_SC" == "200" ]]; then
+        IGNORE_SIZE="$CALIB_SZ"
+        log_warn "[!] Soft 404 Aktif! Mengabaikan respon dengan ukuran $IGNORE_SIZE bytes."
+    else
+        log_info "[OK] Respon server normal."
     fi
-    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
-    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+
+    # --- 3. WORDLIST CONFIG & EXPOSURE ---
+    local EF=(
+        # --- PRIORITY 1: ENV FILES ---
+        ".env" ".env.example" ".env.local" ".env.dev" ".env.production" 
+        ".env.bak" ".env.old" ".env.save" "core/.env" "app/.env" 
+        "config/.env" "local.env"
+        
+        # --- PRIORITY 2: CONFIG FILES ---
+        "config.php" "wp-config.php" "wp-config.php.bak" "configuration.php" 
+        "local_settings.py" "config.js" "database.yml" "settings.php" 
+        "db_config.php" "db.php" "connect.php"
+        
+        # --- PRIORITY 3: CLOUD & GIT EXPOSURE ---
+        ".git/config" ".git/HEAD" ".vscode/sftp.json" ".idea/workspace.xml" 
+        "docker-compose.yml" "Dockerfile" "package.json" "composer.json"
+        ".aws/credentials" "aws.yml" "gcloud/credentials.db"
+        
+        # --- PRIORITY 4: BACKUPS & DUMPS ---
+        "backup.sql" "database.sql" "db_backup.sql" "dump.sql" 
+        "backup.zip" "site.tar.gz" "www.zip" "public_html.zip"
+        "storage/logs/laravel.log" "debug.log" "error_log"
+        
+        # --- PRIORITY 5: DEBUG INFO ---
+        "phpinfo.php" "info.php" "test.php" "server-status" 
+        "api/docs" "swagger/index.html" "actuator/health" "actuator/env"
+    )
+    
+    local total=${#EF[@]}
+    log_info "[*] Memulai Scan Sensitif pada $TARGET"
+    log_info "    (Total Wordlist: $total, Mode: Regex Hunter)..."
+    
+    local TJL; TJL=$(add_temp_file)
+    local TPL; TPL=$(add_temp_file)
+    printf "%s\n" "${EF[@]}" > "$TPL"
+    
+    export TARGET; export RATE_LIMIT; export KINFO_USER_AGENT; export TJL; export IGNORE_SIZE
+    
+    # --- 4. EXECUTION (Using check_path_smart from R7) ---
+    # Kita menggunakan fungsi smart dari R7 karena sudah punya fitur download & regex
+    # Regex di R7 sudah mencakup "password", "db_password", dll.
+    
+    cat "$TPL" | xargs -P "$PARALLEL_JOBS" -I {} \
+        bash -c "check_path_smart \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$TJL\" \"$IGNORE_SIZE\""
+    
+    local fc; fc=$(wc -l < "$TJL")
+    log_info "[+] Scan selesai. Item sensitif potensial: $fc"
+    
+    if [[ "$fc" -eq 0 ]]; then 
+        log_warn "Tidak ada file konfigurasi sensitif yang ditemukan."; return 0; 
+    fi
+
+    # --- 5. CREDENTIAL ANALYSIS (Post-Processing) ---
+    # Analisis lanjutan: Memberi highlight jika hasil mengandung kata kunci 'DB_PASSWORD' dll.
+    # Karena 'check_path_smart' sudah memberi label [CONFIRMED SHELL] atau [Info],
+    # Kita filter ulang untuk modul ENV ini.
+    
+    log_info "[*] Menganalisis hasil untuk kredensial..."
+    local FINAL_OUT; FINAL_OUT=$(add_temp_file)
+    
+    while IFS= read -r line; do
+        # Parse JSON output dari check_path_smart
+        local url; url=$(echo "$line" | jq -r '.url')
+        local info; info=$(echo "$line" | jq -r '.info // "Found"')
+        local status; status=$(echo "$line" | jq -r '.status')
+        local size; size=$(echo "$line" | jq -r '.size')
+        
+        # Labeling ulang agar sesuai konteks ENV
+        if [[ "$info" == *"CONFIRMED"* ]]; then
+            info="[!!!] CRITICAL: LEAKED CREDENTIALS"
+        elif [[ "$url" == *".env"* || "$url" == *"config"* ]]; then
+             if [[ "$status" == "200" && "$size" -gt 50 ]]; then
+                info="[!] HIGH: POTENTIAL CONFIG"
+             fi
+        fi
+        
+        echo "[$status] $info $url (Size: $size)" >> "$FINAL_OUT"
+    done < "$TJL"
+
+    # --- 6. OUTPUT GENERATION ---
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        jq -s --arg target "$TARGET" --arg soft404_size "$IGNORE_SIZE" \
+           '{target: $target, results: .}' "$TJL" > "$OUTPUT_FILE"
+        if [[ "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+    else
+        {
+            echo "ENV & Config Scanner Results (v1.4 Credential Hunter)"
+            echo "Target: $TARGET"
+            echo "Scan Time: $(date)"
+            echo "Soft 404 Filter Size: $IGNORE_SIZE bytes"
+            echo "=================================="
+            cat "$FINAL_OUT" | sort -k 2
+        } > "$OUTPUT_FILE"
+        
+        if [[ "$OUTPUT_FILE" != "/dev/stdout" ]]; then 
+            cat "$OUTPUT_FILE"
+            echo -e "\n[+] Hasil disimpan di: $OUTPUT_FILE"
+        fi
+    fi
 }
 
-# --- [R9] WORDPRESS REGISTRATION FINDER ---
+
+# --- [R9] WP CHECK & USER ENUM (v1.4 Deep Detect) ---
+
 run_module_wpcheck() {
-    log_info "Memulai WordPress Registration Finder..."
+    log_info "Memulai WP Check & User Enumeration v1.4..."
+    
+    # --- 1. SETUP & VALIDASI ---
     if [[ -z "$TARGET" ]]; then log_error "Target domain diperlukan."; return 1; fi
     local ST; ST=$(echo "$TARGET"|sed -E 's~^https?://~~'|sed -E 's/^www\.//'|cut -d'/' -f1)
-    local WU="https://$ST"; log_info "[*] Memeriksa situs WordPress di $WU"
-    local R; R=$(curl -sIL "$WU" --connect-timeout 3 --max-time 5 -H "User-Agent: $KINFO_USER_AGENT" 2>/dev/null)
-    if ! echo "$R" | grep -qi "wp-content\|wordpress"; then log_warn "[!] Ini tampaknya bukan situs WordPress."; fi
-    local RP=("wp-login.php?action=register" "wp-signup.php" "register" "signup" "create-account" "registration")
-    local TJL; TJL=$(add_temp_file); local TPL; TPL=$(add_temp_file); printf "%s\n" "${RP[@]}" > "$TPL"
-    export TARGET="$WU"; export RATE_LIMIT=0; export KINFO_USER_AGENT; export TJL
-    cat "$TPL" | xargs -P "$PARALLEL_JOBS" -I {} \
-        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$TJL\""
-    local FU=""; local FS=""
-    while IFS= read -r L; do
-        if [[ $(echo "$L" | jq -r '.status') == "200" ]]; then FU=$(echo "$L" | jq -r '.url'); FS="200"; break; fi
-    done < "$TJL"
-    local RD=""
-    if [[ -n "$FU" ]]; then log_result "[+] Ditemukan halaman registrasi potensial: $FU"; RD="Halaman registrasi ditemukan di $FU";
-    else log_warn "[-] Tidak ada halaman registrasi (200 OK) yang ditemukan."; RD="Tidak ada halaman registrasi (200 OK) yang ditemukan."; fi
-    local OD
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        OD=$(jq -n --arg domain "$ST" --arg found_url "$FU" --arg details "$RD" \
-            '{"domain": $domain, "registration_page_found": (if $found_url != "" then true else false end), "url": $found_url, "details": $details}')
+    local WU="https://$ST"
+    
+    log_info "[*] Target: $WU"
+
+    # --- 2. DEEP WORDPRESS DETECTION (Perbaikan Bug v1.3) ---
+    log_info "[*] Memverifikasi CMS WordPress..."
+    local IS_WP=0
+    
+    # Metode A: Cek keberadaan wp-login.php (Paling Akurat)
+    local LOGIN_CHECK
+    LOGIN_CHECK=$(curl -s -o /dev/null -w "%{http_code}" "$WU/wp-login.php" -A "$KINFO_USER_AGENT")
+    
+    # Metode B: Cek REST API Endpoint
+    local API_CHECK
+    API_CHECK=$(curl -s -o /dev/null -w "%{http_code}" "$WU/wp-json/" -A "$KINFO_USER_AGENT")
+    
+    # Metode C: Cek Source Code (wp-content)
+    local BODY_CHECK
+    BODY_CHECK=$(curl -sL "$WU" -r 0-5000 -A "$KINFO_USER_AGENT" | grep -qi "wp-content\|wordpress" && echo "YES" || echo "NO")
+
+    if [[ "$LOGIN_CHECK" == "200" || "$API_CHECK" == "200" || "$BODY_CHECK" == "YES" ]]; then
+        log_info "[OK] Terkonfirmasi: Target adalah WordPress."
+        IS_WP=1
     else
-        OD=$(cat <<EOF
-WordPress Registration Finder Results
-Target: $ST
-Scan Time: $(date)
-==================================
-Status: $RD
-EOF
-)
+        log_warn "[!] Gagal mendeteksi footprint WordPress (wp-login: $LOGIN_CHECK, wp-json: $API_CHECK)."
+        log_warn "    Script akan tetap mencoba, namun hasil mungkin tidak akurat."
     fi
-    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
-    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+
+    local TF_RES; TF_RES=$(add_temp_file)
+
+    # --- 3. USER ENUMERATION (Fitur Baru v1.4) ---
+    log_info "[*] Mencoba Enumerasi User (Teknik REST API)..."
+    local USERS_FOUND=""
+    local API_URL="$WU/wp-json/wp/v2/users"
+    
+    # Tarik data JSON
+    local API_DATA
+    API_DATA=$(curl -sL --max-time 10 "$API_URL" -A "$KINFO_USER_AGENT")
+    
+    # Validasi apakah response adalah JSON array valid
+    if echo "$API_DATA" | jq -e '.[0].id' >/dev/null 2>&1; then
+        # Parsing Username & Nama
+        USERS_FOUND=$(echo "$API_DATA" | jq -r '.[] | "User ID: \(.id) | Login: \(.slug) | Name: \(.name)"')
+        local user_count
+        user_count=$(echo "$USERS_FOUND" | wc -l)
+        
+        log_result "[CRITICAL] Ditemukan $user_count user terekspos via API!"
+        echo "--- USER ENUMERATION RESULT ---" >> "$TF_RES"
+        echo "$USERS_FOUND" >> "$TF_RES"
+        echo "" >> "$TF_RES"
+    else
+        log_info "[-] REST API User Enumeration ditutup/diproteksi."
+        echo "--- USER ENUMERATION RESULT ---" >> "$TF_RES"
+        echo "Protected / Not Found" >> "$TF_RES"
+        echo "" >> "$TF_RES"
+    fi
+
+    # --- 4. REGISTRATION PAGE FINDER ---
+    log_info "[*] Mencari Halaman Registrasi Terbuka..."
+    local RP=("wp-login.php?action=register" "wp-signup.php" "register" "signup" "my-account" "registration")
+    local FOUND_REG=""
+    
+    for P in "${RP[@]}"; do
+        local FULL_URL="$WU/$P"
+        local SC
+        SC=$(curl -sL -o /dev/null -w "%{http_code}" "$FULL_URL" -A "$KINFO_USER_AGENT")
+        
+        if [[ "$SC" == "200" ]]; then
+            # Cek konten lagi untuk memastikan bukan soft 404 atau halaman login biasa
+            local CONTENT
+            CONTENT=$(curl -sL "$FULL_URL" -r 0-3000 -A "$KINFO_USER_AGENT")
+            if echo "$CONTENT" | grep -qi "user_login\|user_email"; then
+                FOUND_REG="$FULL_URL"
+                log_result "[+] Halaman Registrasi Ditemukan: $FOUND_REG"
+                break
+            fi
+        fi
+    done
+
+    if [[ -z "$FOUND_REG" ]]; then
+        log_info "[-] Tidak ada halaman registrasi terbuka yang ditemukan."
+        FOUND_REG="Not Found"
+    fi
+
+    # --- 5. OUTPUT GENERATION ---
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        # Siapkan array users untuk JSON
+        local JSON_USERS="[]"
+        if [[ -n "$USERS_FOUND" ]]; then
+             JSON_USERS=$(echo "$API_DATA" | jq '[.[] | {id: .id, login: .slug, name: .name}]')
+        fi
+        
+        jq -n --arg domain "$ST" \
+              --arg is_wp "$IS_WP" \
+              --arg reg_url "$FOUND_REG" \
+              --argjson users "$JSON_USERS" \
+              '{domain: $domain, is_wordpress: ($is_wp=="1"), registration_url: $reg_url, exposed_users: $users}' > "$OUTPUT_FILE"
+        
+        if [[ "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+    else
+        {
+            echo "WordPress Scan Results (v1.4 Deep Detect)"
+            echo "Target: $ST"
+            echo "WordPress Detected: $( [[ "$IS_WP" -eq 1 ]] && echo "YES" || echo "NO" )"
+            echo "=================================="
+            echo "[+] REGISTRATION URL:"
+            echo "    $FOUND_REG"
+            echo ""
+            echo "[+] EXPOSED USERS (REST API):"
+            if [[ -n "$USERS_FOUND" ]]; then
+                echo "$USERS_FOUND"
+            else
+                echo "    [-] Tidak ada user terekspos / API diproteksi."
+            fi
+        } > "$OUTPUT_FILE"
+        
+        if [[ "$OUTPUT_FILE" != "/dev/stdout" ]]; then 
+            cat "$OUTPUT_FILE"
+            echo -e "\n[+] Hasil disimpan di: $OUTPUT_FILE"
+        fi
+    fi
 }
+
 
 # --- [R10] GRAB DOMAIN DARI ZONE-H ---
 run_module_zoneh() {
