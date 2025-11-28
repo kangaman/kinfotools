@@ -1,185 +1,73 @@
-# 🧠 KINFO v1.3 — Incident Response & Pentest Toolkit
+# 🧠 **KINFO v1.4 — Advanced Incident Response & Pentest Toolkit**  
+*Premium Edition — Enterprise-Grade Documentation*
 
 ![Bash](https://img.shields.io/badge/Language-Bash-blue?logo=gnu-bash)
-![Version](https://img.shields.io/badge/Version-1.3-green)
+![Version](https://img.shields.io/badge/Version-1.4-green)
 ![Updated](https://img.shields.io/badge/Updated-Nov_2025-blueviolet)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
+![Status](https://img.shields.io/badge/Build-Stable-success)
 
-> **KINFO** adalah toolkit respons insiden dan pemindaian keamanan berbasis CLI yang dirancang untuk **tim CSIRT**, **administrator server**, dan **peneliti keamanan siber**.  
-> Versi 1.3 membawa fitur utama **Data Collection System** untuk otomatisasi audit keamanan sistem lokal.
+## 🎯 Ringkasan Eksekutif
+**KINFO v1.4** adalah toolkit respons insiden, OSINT, dan pemindaian keamanan yang dirancang untuk CSIRT, pentester, dan administrator server.
 
----
+## 📦 Fitur Utama
+### Remote Security Scanner
+- Subdomain Engine v1.4  
+- Reverse IP Multi-source  
+- Webshell Finder Ultimate  
+- WordPress Deep Detect  
+- Judi/Slot Deep Scanner  
 
-## 🆕 Pembaruan Versi 1.3
+### Local Incident Response Mode
+Mengumpulkan artefak lengkap: system info, cron, network, log, disk, credential hunter, dan hashes.
 
-| Fitur Baru / Ditingkatkan | Deskripsi |
-|:---------------------------|:-----------|
-| 🧩 **Collect Data (Forensic Collector)** | Mengumpulkan data sistem otomatis: info host, user, login, cron, koneksi jaringan, proses aktif, dan statistik disk. |
-| ⚙️ **Pemilahan Mode Remote & Lokal** | Menu CLI kini memisahkan mode Remote Scanner dan Local Incident Response. |
-| 📁 **Struktur Output Baru** | Semua hasil disimpan otomatis di `outputkinfo/` dengan timestamp unik. |
-| 🧱 **Enhanced Dependency Checker** | Pemeriksaan dependensi wajib dan opsional dengan notifikasi warna. |
-| 💾 **Format JSON Terpadu** | Semua modul mendukung `--output-format json` untuk integrasi SIEM / Wazuh. |
-| 🧰 **Parallel Execution** | Pemrosesan paralel lebih efisien pada subdomain, direnum, dan judi finder. |
-
----
-
-## 📦 Instalasi
-
-```bash
-# Clone repository
-git clone https://github.com/kangaman/kinfo.git
-cd kinfo
-
-# Jadikan executable
-chmod +x kinfo.sh
+## Diagram Arsitektur (Mermaid)
+```mermaid
+flowchart TD
+    A[User CLI] --> B[KINFO Core Engine]
+    B --> C1[Remote Scanner]
+    B --> C2[Incident Response Collector]
+    C1 --> D1[Subdomain Engine]
+    C1 --> D2[Directory Enum]
+    C1 --> D3[Judi Scanner]
+    C1 --> D4[WP Deep Detect]
+    C1 --> D5[Webshell Ultimate]
+    C2 --> E1[System Info]
+    C2 --> E2[Logs]
+    C2 --> E3[Credential Hunter]
 ```
 
-**Dependensi wajib:**
+## Cara Penggunaan
 ```
-curl, grep, jq, find, stat, sed, sort, uniq, wc, mktemp
-```
-
-**Dependensi opsional:**
-```
-nslookup, ftp, whois, netstat, ss, last, lastlog, ps
+bash kinfo.sh
+bash kinfo.sh --subdomain example.com
+bash kinfo.sh --revip 1.2.3.4
+bash kinfo.sh --ir
 ```
 
----
-
-## ⚙️ Penggunaan
-
-### 🎛️ Mode Interaktif (CLI Menu)
-
-```bash
-./kinfo.sh
-```
-
-Pilih mode:
-- `[R] Remote Scanner`
-- `[L] Local Incident Response`
-- `[Q] Quit`
-
-### ⚡ Mode Non-Interaktif (Otomatisasi CLI)
-
-Contoh:
-```bash
-# Subdomain Finder
-./kinfo.sh --module subdomain -t example.com -f json
-
-# Directory Enumeration
-./kinfo.sh --module direnum -t https://example.com -w wordlist.txt
-
-# Collect Data (Lokal)
-./kinfo.sh --module collectdata --output-format json
-```
-
----
-
-## 🧭 Struktur Modul
-
-### 🌐 Remote Scanner
-| Kode | Modul | Deskripsi |
-|------|--------|-----------|
-| R1 | subdomain | Enhanced Subdomain Finder |
-| R2 | direnum | Directory/File Enumeration |
-| R3 | ftpbrute | FTP Brute Force |
-| R4 | judi | Judi Online Finder |
-| R5 | reverseip | Reverse IP Lookup |
-| R6 | extract | Extract Domain & Header Check |
-| R7 | webscan | Webshell Finder (remote dirscan) |
-| R8 | envscan | ENV & Debug Method Scanner |
-| R9 | wpcheck | WordPress Registration Finder |
-| R10 | zoneh | Grab Domain dari Zone-H |
-
----
-
-### 💻 Local Incident Response
-| Kode | Modul | Fungsi |
-|------|--------|--------|
-| L1 | filescan | Pendeteksi webshell lokal berbasis pattern |
-| L2 | localps | Analisis proses mencurigakan |
-| L3 | localnet | Pengecekan koneksi jaringan aktif |
-| L4 | localusers | Audit user login dan akun aktif |
-| L5 | localcron | Analisis cron job mendalam |
-| L6 | ftpclient | Mini FTP Shell Interaktif |
-| L7 | collectdata 🆕 | Koleksi data sistem otomatis untuk analisis forensik |
-
----
-
-## 🧩 Fitur Baru — `Collect Data`
-
-Fitur ini merupakan hasil pengembangan dari referensi GitHub [adpermana](https://github.com/adpermana), namun dimodifikasi untuk mendukung:
-- Audit lokal tanpa dependensi tambahan.
-- Output dalam **JSON** (untuk integrasi dengan Wazuh/ELK).
-- Logging interaktif dengan warna dan timestamp.
-- Kompatibel untuk **Ubuntu**, **Debian**, **CentOS**, dan **Kali Linux**.
-
-Contoh hasil output (JSON):
-```json
-{
-  "hostname": "server01",
-  "os": "Ubuntu 22.04 LTS",
-  "uptime": "3 days, 4:22",
-  "users_logged_in": ["root", "www-data"],
-  "network_connections": ["ESTABLISHED :22", "LISTEN :80"],
-  "cron_jobs": ["root - /usr/bin/backup.sh"],
-  "disk_usage": "45%",
-  "timestamp": "2025-11-05T09:10:12Z"
-}
-```
-
-Lokasi penyimpanan:  
-```
-outputkinfo/collect_<timestamp>.json
-```
-
----
-
-## 📁 Struktur Output
-
+## Struktur Output
 ```
 outputkinfo/
- ├── kinfo_subdomain_1730788322.txt
- ├── kinfo_filescan_1730788345.json
- ├── kinfo_collect_1730788370.json
- └── logs/
+└── 2025-11-27_21-32-02/
+    ├── system/
+    ├── subdomain/
+    ├── reverseip/
+    ├── webshell/
+    ├── wp-scan/
+    ├── judi-scan/
+    └── summary.txt
 ```
 
----
+## Changelog v1.4
+- Integrasi IR Collector  
+- Subdomain Engine improved  
+- Webshell Ultimate DB  
+- Reverse IP Multi-source  
+- WP Deep Detect upgrade  
+- Deep judi/slot path generator  
 
-## 🧠 Tips Operasional
+## Pengembang
+Saeful Bahri — CSIRT Diskominfo Subang
 
-- Jalankan dengan flag `--debug` untuk melihat proses detail.
-- Gunakan format `--output-format json` agar mudah diolah oleh SIEM.
-- Hasil `collectdata` dapat dipakai untuk baseline konfigurasi sistem.
-- Disarankan dijalankan sebagai **root** agar semua data bisa dikumpulkan penuh.
-
----
-
-## ⚙️ Troubleshooting
-
-| Masalah | Penyebab | Solusi |
-|----------|-----------|--------|
-| `Dependensi wajib tidak ditemukan` | `jq`, `curl`, atau `grep` tidak ada | Jalankan `sudo apt install jq curl grep` |
-| `Tidak ada output` | Permission error atau mode salah | Jalankan sebagai root / periksa target |
-| `Output kosong` | Format target salah | Gunakan domain/IP/URL yang valid |
-| `Cannot write to output` | Izin folder `outputkinfo/` | Jalankan `chmod -R 755 outputkinfo` |
-
----
-
-## 📜 Lisensi
-
-**MIT License**  
-© 2025 Saeful Bahri  
-Bebas digunakan, dimodifikasi, dan dikembangkan — selama mencantumkan kredit pembuat asli.
-
----
-
-## 👨‍💻 Pengembang
-
-- **Saeful Bahri** — Pengembang utama 
-- Referensi pengembangan `collectdata`: [adpermana (GitHub)](https://github.com/adpermana)
-
----
-
-> “KINFO 1.3 bukan sekadar scanner, tapi toolkit forensik cepat untuk memahami apa yang benar-benar terjadi di sistemmu.”
+## Lisensi
+MIT License
