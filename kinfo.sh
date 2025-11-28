@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # KINFO - Incident Response & Pentest Toolkit
-# Versi: 1.3 (Integrasi Kolektor Artefak IR)
+# Versi: 1.4 (Integrasi Kolektor Artefak IR)
 #
 # Hak Cipta (c) 2025 Saeful
 # Kontak: https://jejakintel.t.me/
@@ -32,14 +32,14 @@
 
 
 # --- KONFIGURASI GLOBAL ---
-VERSION="1.3"
+VERSION="1.4"
 KINFO_USER_AGENT="Mozilla/5.0 KINFO/$VERSION"
 DORK_UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"
 
 # --- LOKASI SCRIPT & FOLDER OUTPUT ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 OUTPUT_DIR="$SCRIPT_DIR/outputkinfo"
-# *** BARU v3.0: Folder untuk Koleksi IR Penuh ***
+# *** BARU v1.4: Folder untuk Koleksi IR Penuh ***
 IR_DATA_DIR="$SCRIPT_DIR/IRdata"
 
 # --- WARNA ---
@@ -192,73 +192,203 @@ show_usage() {
     echo ""
 }
 
-# --- [R1] ENHANCED SUBDOMAIN FINDER ---
-resolve_subdomain() { local S="$1"; if nslookup "$S" >/dev/null 2>&1; then echo "$S"; fi; }
+# --- [R1] ENHANCED SUBDOMAIN FINDER (v1.4 Optimized) ---
+
+# Fungsi Helper 1: Resolve DNS
+resolve_subdomain() { 
+    local S="$1"
+    if nslookup "$S" >/dev/null 2>&1; then 
+        echo "$S"
+    fi
+}
 export -f resolve_subdomain
+
+# Fungsi Helper 2: Cek HTTP (FIXED JQ ERROR)
 check_subdomain_http() {
     local S="$1"; local RF="$2"; local UA="$3"
     for P in "https" "http"; do
-        local U="$P://$S"; local SC; SC=$(curl -sL -I -o /dev/null -w "%{http_code}" --max-time 5 "$U" -A "$UA")
+        local U="$P://$S"
+        # Mengambil status code dengan timeout cepat
+        local SC
+        SC=$(curl -sL -I -o /dev/null -w "%{http_code}" --max-time 5 "$U" -A "$UA")
+        
+        # Filter status code yang valid (2xx, 3xx, 401, 403)
         if [[ "$SC" =~ ^(2|3|401|403) ]]; then
-            jq -n --arg url "$U" --arg status "$SC" '{"url": $url, "status": $status_code}' >> "$RF"; break
+            # FIX: Variabel internal jq disamakan dengan argumen (--arg status)
+            jq -n --arg url "$U" --arg status "$SC" '{"url": $url, "status": $status}' >> "$RF"
+            break
         fi
     done
 }
 export -f check_subdomain_http
+
+# Fungsi Utama Modul R1
 run_module_subdomain() {
-    log_info "Memulai Enhanced Subdomain Finder..."
+    log_info "Memulai Enhanced Subdomain Finder v1.4..."
+    
+    # --- 1. SETUP & VALIDASI INPUT ---
     if [[ -z "$TARGET" ]]; then log_error "Target domain diperlukan."; return 1; fi
-    local ST; ST=$(echo "$TARGET"|sed -E 's~^https?://~~'|sed -E 's/^www\.//'|cut -d'/' -f1)
-    log_debug "Input asli '$TARGET' disanitasi menjadi '$ST'"
+    
+    # Sanitasi input (hapus http/https/www/path)
+    local ST
+    ST=$(echo "$TARGET"|sed -E 's~^https?://~~'|sed -E 's/^www\.//'|cut -d'/' -f1)
+    
     if [[ -z "$ST" ]]; then log_error "Input target tidak valid."; return 1; fi
-    if ! command -v jq &>/dev/null; then log_warn "Perintah 'jq' tidak ditemukan."; fi
-    if ! command -v nslookup &>/dev/null; then log_warn "Perintah 'nslookup' tidak ditemukan."; fi
-    local TFA; TFA=$(add_temp_file); log_debug "Temp file: $TFA"
-    log_info "[*] Mengecek crt.sh..."
-    curl -s "https://crt.sh/?q=%.${ST}&output=json" -A "$KINFO_USER_AGENT"|jq -r '.[].name_value' 2>/dev/null|grep -Po '(\S+\.)+\S+' >> "$TFA"
-    log_info "[*] Mengecek bufferover.run..."
-    curl -s "https://dns.bufferover.run/dns?q=.${ST}" -A "$KINFO_USER_AGENT" 2>/dev/null|jq -r '.FDNS_A[],.RDNS[]' 2>/dev/null|cut -d',' -f2 >> "$TFA"
-    log_info "[*] Mengecek alienvault.com..."
-    curl -s "https://otx.alienvault.com/api/v1/indicators/domain/${ST}/passive_dns" -A "$KINFO_USER_AGENT" 2>/dev/null|jq -r '.passive_dns[].hostname' 2>/dev/null|grep "\.${ST}$" >> "$TFA"
-    log_info "[*] Mengecek threatcrowd.org..."
-    curl -s "https://www.threatcrowd.org/searchApi/v2/domain/report/?domain=${ST}" -A "$KINFO_USER_AGENT" 2>/dev/null|jq -r '.subdomains[]' 2>/dev/null >> "$TFA"
-    sort -u "$TFA" -o "$TFA"; cp "$TFA" "/tmp/kinfo_last_subdomains_${ST}.txt"
-    local total; total=$(wc -l < "$TFA"); log_info "[+] Ditemukan total $total subdomain unik (dari API)."
-    log_info "[*] Melakukan DNS resolution paralel (Proses: $PARALLEL_JOBS)..."
-    local TFD; TFD=$(add_temp_file)
-    cat "$TFA" | xargs -P "$PARALLEL_JOBS" -I {} bash -c "resolve_subdomain {}" >> "$TFD"
-    local dlc; dlc=$(wc -l < "$TFD"); log_info "[+] Ditemukan $dlc subdomain yang DNS LIVE."
-    log_info "[*] Melakukan HTTP check paralel pada subdomain DNS Live (Proses: $PARALLEL_JOBS)..."
-    local TFH; TFH=$(add_temp_file); export KINFO_USER_AGENT; export TFH
-    cat "$TFD" | xargs -P "$PARALLEL_JOBS" -I {} bash -c "check_subdomain_http \"{}\" \"$TFH\" \"$KINFO_USER_AGENT\""
-    local hlc; hlc=$(wc -l < "$TFH"); log_info "[+] Ditemukan $hlc subdomain yang HTTP LIVE."
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-        jq -n --arg target "$ST" --arg total_api "$total" --arg total_dns_live "$dlc" --arg total_http_live "$hlc" \
-            --argjson all_api "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$TFA")" \
-            --argjson dns_live "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$TFD")" \
-            --argjson http_live "$(jq -s '.' "$TFH")" \
-            '{target: $target, total_found_api: $total_api, total_dns_live: $total_dns_live, total_http_live: $total_http_live, all_subdomains_api: $all_api, dns_live_subdomains: $dns_live, http_live_subdomains: $http_live}'
+    log_info "[*] Target Scan: $ST"
+    
+    # File temporary untuk menampung hasil mentah
+    local TFA; TFA=$(add_temp_file) 
+    
+    # --- 2. WILDCARD DNS CHECK (Fitur Baru v1.4) ---
+    # Mencegah ribuan subdomain palsu jika server disetting "Catch-All"
+    log_info "[*] Memeriksa Wildcard DNS..."
+    local RAND_SUB="kinfo-wildcard-check-$(date +%s).$ST"
+    local WILDCARD_FILTER=0
+    
+    if nslookup "$RAND_SUB" >/dev/null 2>&1; then
+        log_warn "[!] PERINGATAN: Wildcard DNS terdeteksi! Server merespon untuk subdomain acak."
+        log_warn "    Hasil scan mungkin mengandung false positives. Filter ketat diaktifkan."
+        WILDCARD_FILTER=1
     else
-        cat <<EOF
-KINFO Enhanced Subdomain Finder Results
-Target: $ST
-Scan Time: $(date)
-Total Found (API): $total | DNS Live: $dlc | HTTP Live: $hlc
-====================================
-ALL SUBDOMAINS (Total: $total):
-$(cat "$TFA")
+        log_info "[OK] Tidak ada Wildcard DNS. Melanjutkan scan standar."
+    fi
 
-DNS LIVE SUBDOMAINS (Total: $dlc):
-$(cat "$TFD")
+    # --- 3. PASSIVE ENUMERATION (Multi-Source Parallel) ---
+    log_info "[*] Mengambil data dari 5 sumber publik (Parallel Fetching)..."
+    
+    # Sumber 1: CRT.SH (Certificate Transparency)
+    (
+        curl -s "https://crt.sh/?q=%.${ST}&output=json" -A "$KINFO_USER_AGENT" | \
+        jq -r '.[].name_value' 2>/dev/null | grep -Po '(\S+\.)+\S+' >> "$TFA"
+    ) & PID1=$!
+    
+    # Sumber 2: HACKERTARGET (API Gratis - Sangat Akurat)
+    (
+        curl -s "https://api.hackertarget.com/hostsearch/?q=${ST}" -A "$KINFO_USER_AGENT" | \
+        cut -d',' -f1 | grep -v "API count exceeded" >> "$TFA"
+    ) & PID2=$!
+    
+    # Sumber 3: ANUBIS / JLDC (Database Subdomain Besar)
+    (
+        curl -s "https://jldc.me/anubis/subdomains/${ST}" -A "$KINFO_USER_AGENT" | \
+        jq -r '.[]' 2>/dev/null >> "$TFA"
+    ) & PID3=$!
 
-HTTP LIVE SUBDOMAINS (Total: $hlc):
-$(cat "$TFH" | jq -r '"[\(.status)] \(.url)"')
-EOF
-    fi | tee "$OUTPUT_FILE" > /dev/null
-    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+    # Sumber 4: ALIENVAULT (OTX Passive DNS)
+    (
+        curl -s "https://otx.alienvault.com/api/v1/indicators/domain/${ST}/passive_dns" -A "$KINFO_USER_AGENT" | \
+        jq -r '.passive_dns[].hostname' 2>/dev/null >> "$TFA"
+    ) & PID4=$!
+
+    # Sumber 5: RAPIDDNS (Web Scraping)
+    (
+        curl -s "https://rapiddns.io/subdomain/${ST}?full=1" -A "$KINFO_USER_AGENT" | \
+        grep -oP '(?<=<td>)[a-zA-Z0-9.-]+\.'${ST}'(?=</td>)' >> "$TFA"
+    ) & PID5=$!
+
+    # --- OPSIONAL: API BERBAYAR ---
+    # Isi API Key di bawah ini jika punya (misal: SecurityTrails)
+    local SECURITYTRAILS_KEY="" 
+    
+    if [[ -n "$SECURITYTRAILS_KEY" ]]; then
+        log_info "[*] API Key ditemukan. Mengambil dari SecurityTrails..."
+        (
+            curl -s "https://api.securitytrails.com/v1/domain/${ST}/subdomains" \
+            -H "APIKEY: $SECURITYTRAILS_KEY" | jq -r '.subdomains[]' | sed "s/$/.$ST/" >> "$TFA"
+        ) & PID_SEC=$!
+        wait $PID_SEC
+    fi
+
+    # Tunggu semua proses background selesai
+    wait $PID1 $PID2 $PID3 $PID4 $PID5
+    
+    # --- 4. CLEANING & FILTERING ---
+    log_info "[*] Membersihkan & mengurutkan hasil..."
+    local TFC; TFC=$(add_temp_file)
+    
+    # Membersihkan karakter wildcard (*.), spasi, dan duplikat
+    grep "$ST" "$TFA" | grep -v "*" | sed 's/^\.//' | sort -u > "$TFC"
+    
+    local total; total=$(wc -l < "$TFC")
+    log_info "[+] Ditemukan total $total kandidat subdomain unik (Passive Data)."
+
+    # --- 5. DNS RESOLUTION (Validasi Aktif) ---
+    log_info "[*] Melakukan DNS Resolution (Cek domain aktif) - Proses: $PARALLEL_JOBS..."
+    local TFD; TFD=$(add_temp_file)
+    
+    # Validasi masal menggunakan xargs parallel
+    cat "$TFC" | xargs -P "$PARALLEL_JOBS" -I {} bash -c "resolve_subdomain {}" >> "$TFD"
+    
+    local dlc; dlc=$(wc -l < "$TFD")
+    log_info "[+] Ditemukan $dlc subdomain yang TERDAFTAR di DNS (Live)."
+
+    # --- 6. HTTP CHECK (Cek Web Server) ---
+    log_info "[*] Melakukan HTTP Check (Cek website aktif) - Proses: $PARALLEL_JOBS..."
+    local TFH; TFH=$(add_temp_file)
+    export KINFO_USER_AGENT; export TFH
+    
+    # Cek HTTP/HTTPS parallel
+    cat "$TFD" | xargs -P "$PARALLEL_JOBS" -I {} bash -c "check_subdomain_http \"{}\" \"$TFH\" \"$KINFO_USER_AGENT\""
+    
+    local hlc; hlc=$(wc -l < "$TFH")
+    log_info "[+] Ditemukan $hlc subdomain yang memiliki WEB SERVER (HTTP/S)."
+
+    # --- 7. OUTPUT GENERATION (FIXED: Full Save + Summary View) ---
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        # Format JSON (Tetap Full Data)
+        jq -n --arg target "$ST" \
+              --arg total_passive "$total" \
+              --arg total_dns "$dlc" \
+              --arg total_http "$hlc" \
+              --argjson passive_sources "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$TFC")" \
+              --argjson dns_live "$(jq -Rsc 'split("\n")|map(select(length > 0))' "$TFD")" \
+              --argjson http_live "$(jq -s '.' "$TFH")" \
+              '{target: $target, stats: {passive: $total_passive, dns_live: $total_dns, http_live: $total_http}, data: {passive: $passive_sources, dns_live: $dns_live, http_live: $http_live}}' > "$OUTPUT_FILE"
+        
+        # Tampilkan JSON ke layar jika tidak disimpan ke file khusus
+        if [[ "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+
+    else
+        # Format TEXT (Human Readable)
+        # 1. Simpan HASIL LENGKAP ke File Output
+        {
+            echo "KINFO Enhanced Subdomain Finder v1.4"
+            echo "Target: $ST"
+            echo "Scan Time: $(date)"
+            echo "Stats: Passive Candidate($total) | DNS Live($dlc) | HTTP Live($hlc)"
+            echo "===================================="
+            echo "[+] HTTP LIVE SUBDOMAINS (Web Server Aktif):"
+            cat "$TFH" | jq -r '"[\(.status)] \(.url)"'
+            echo ""
+            echo "[+] DNS LIVE ONLY (Terdaftar DNS, tapi Web/HTTP Mati):"
+            comm -23 <(sort "$TFD") <(cat "$TFH" | jq -r '.url' | sed -E 's~^https?://~~' | sort)
+        } > "$OUTPUT_FILE"
+
+        # 2. Tampilkan RINGKASAN ke Layar (Agar terminal tidak macet)
+        if [[ "$OUTPUT_FILE" != "/dev/stdout" ]]; then
+            # Tampilkan Header + 25 Baris Pertama
+            head -n 25 "$OUTPUT_FILE"
+            
+            # Hitung sisa baris yang tidak tampil
+            local total_lines
+            total_lines=$(wc -l < "$OUTPUT_FILE")
+            local hidden_lines=$((total_lines - 25))
+            
+            if [[ $hidden_lines -gt 0 ]]; then
+                echo ""
+                echo -e "\033[1;33m(..dan $hidden_lines baris lainnya disembunyikan dari layar..)\033[0m"
+                echo -e "\033[1;32m[+] Hasil LENGKAP telah disimpan di: $OUTPUT_FILE\033[0m"
+            fi
+        else
+            # Jika user mau output ke stdout (misal di-pipe), tampilkan semua
+            cat "$OUTPUT_FILE"
+        fi
+    fi
+    
     log_info "Pencarian subdomain selesai."
 }
 
+# ====================================================================
 # --- [R2] DIRECTORY/FILE ENUMERATION ---
 check_url_path() {
     local BU="$1"; local P="$2"; local RL="$3"; local UA="$4"; local RF="$5"
@@ -333,73 +463,158 @@ run_module_ftpbrute() {
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
 
-# --- [R4] JUDI ONLINE FINDER ---
-check_judi_homepage() {
-    local U="$1"; local KLF="$2"; local RF="$3"
-    local C; C=$(curl -sL "$U" --connect-timeout 5 --max-time 10 -H "User-Agent: $KINFO_USER_AGENT" 2>/dev/null)
-    if [[ -z "$C" ]]; then return; fi
-    while IFS= read -r K; do
-        if [[ -z "$K" || "$K" == \#* ]]; then continue; fi
-        if echo "$C" | grep -iq "$K"; then
-            log_debug "Direct scan match: $K di $U"
-            jq -n --arg method "direct_scan" --arg url "$U" --arg keyword "$K" \
-                '{"method": $method, "url": $url, "keyword": $keyword}' >> "$RF"; break
-        fi
-    done < "$KLF"
+# -----------------------------------------------
+# --- [R4] JUDI ONLINE FINDER (v1.4 Deep Scan) ---
+
+# Fungsi Helper 1: Cek Konten URL terhadap Wordlist
+check_judi_content() {
+    local U="$1"      # URL to check
+    local KLF="$2"    # Path ke judilist.txt
+    local RF="$3"     # File Output Sementara
+    local UA="$4"     # User Agent
+
+    # Download konten (Maksimal 10 detik)
+    # Kita ambil 50KB pertama saja agar cepat, biasanya inject ada di header/body atas
+    local CONTENT
+    CONTENT=$(curl -sL "$U" -r 0-50000 --max-time 10 -H "User-Agent: $UA" 2>/dev/null)
+    
+    if [[ -z "$CONTENT" ]]; then return; fi
+    
+    # OPTIMASI PENTING: Gunakan 'grep -Fwf' untuk mencocokkan semua keyword sekaligus
+    # -F: Fixed string (cepat), -w: Whole word (akurat), -f: Ambil pola dari file
+    local MATCH
+    MATCH=$(echo "$CONTENT" | grep -Fwf "$KLF" | head -1)
+    
+    if [[ -n "$MATCH" ]]; then
+        # Jika ketemu keyword judi
+        log_debug "[FOUND] Indikasi di $U (Key: $MATCH)"
+        jq -n --arg method "deep_scan" --arg url "$U" --arg keyword "$MATCH" \
+            '{"method": $method, "url": $url, "keyword": $keyword}' >> "$RF"
+    fi
 }
-export -f check_judi_homepage
+export -f check_judi_content
+
+# Fungsi Helper 2: Bing Dork Scan (Mencari halaman yang sudah terindeks)
 check_judi_bing() {
-    local TD="$1"; local K="$2"; local RF="$3"; local UA="$4"
-    local Q; Q=$(printf "site:%s \"%s\"" "$TD" "$K" | jq -sRr @uri)
+    local TD="$1"     # Target Domain
+    local K="$2"      # Keyword
+    local RF="$3"     # Result File
+    local UA="$4"     # User Agent Khusus Browser
+    
+    # Query: site:target.com "keyword"
+    local Q
+    Q=$(printf "site:%s \"%s\"" "$TD" "$K" | jq -sRr @uri)
     local BU="https://www.bing.com/search?q=$Q"
-    local R; R=$(curl -sL --max-time 10 -A "$UA" "$BU")
+    
+    local R
+    R=$(curl -sL --max-time 10 -A "$UA" "$BU")
+    
+    # Validasi hasil Bing
     if echo "$R" | grep -iq "$TD" && ! echo "$R" | grep -iqE "(Tidak ada hasil untuk|No results for)"; then
-        log_debug "Bing dork match for keyword: $K"
-        jq -n --arg method "bing_dork" --arg url "$BU" --arg keyword "$K" \
-            '{"method": $method, "url": "https://www.bing.com/search?q=site:'$TD'+\"'${K}'\"", "keyword": $keyword}' >> "$RF"
+        # Ekstrak URL dari hasil Bing (regex sederhana untuk href)
+        local FOUND_URL
+        FOUND_URL=$(echo "$R" | grep -oP 'href="https?://'${TD}'[^"]+"' | head -1 | cut -d'"' -f2)
+        
+        if [[ -z "$FOUND_URL" ]]; then FOUND_URL="$BU"; fi
+
+        jq -n --arg method "bing_dork" --arg url "$FOUND_URL" --arg keyword "$K" \
+            '{"method": $method, "url": $url, "keyword": $keyword}' >> "$RF"
     fi
 }
 export -f check_judi_bing
+
+# Fungsi Utama Modul R4
 run_module_judi() {
-    log_info "Memulai Judi Online Finder..."
+    log_info "Memulai Judi Online Finder v1.4 [Deep Path Scan]..."
+    
+    # --- 1. SETUP & VALIDASI ---
     if [[ -z "$TARGET" ]]; then log_error "Target domain diperlukan."; return 1; fi
-    local ST; ST=$(echo "$TARGET"|sed -E 's~^https?://~~'|sed -E 's/^www\.//'|cut -d'/' -f1)
-    log_debug "Input asli '$TARGET' disanitasi menjadi '$ST'"
+    
+    local ST
+    ST=$(echo "$TARGET"|sed -E 's~^https?://~~'|sed -E 's/^www\.//'|cut -d'/' -f1)
+    
     if [[ -z "$ST" ]]; then log_error "Input target tidak valid."; return 1; fi
-    if [[ ! -f "$JUDI_LIST" ]]; then log_error "Wordlist Judi tidak ditemukan di: $JUDI_LIST"; return 1; fi
-    local kc; kc=$(grep -vE "^\s*#|^\s*$" "$JUDI_LIST" | wc -l)
-    log_info "[*] Menggunakan $JUDI_LIST ($kc keywords)"
-    local SF="/tmp/kinfo_last_subdomains_${ST}.txt"; local TS=("$ST")
-    if [[ -f "$SF" ]]; then
-        log_info "[*] Menggunakan daftar subdomain dari scan Modul 1 ($SF)"
-        mapfile -t-O "${#TS[@]}" TS < <(grep -vE "^\s*#|^\s*$" "$SF")
-    else log_warn "[*] Tidak ada daftar subdomain. Hanya memindai domain utama."; fi
-    local tt; tt=${#TS[@]}; log_info "[*] Total $tt domain/subdomain akan diperiksa..."
-    local TUC; TUC=$(add_temp_file); local TJL; TJL=$(add_temp_file)
-    log_info "[*] Memulai Metode 1: Direct Scan (Homepage) (Paralel: $PARALLEL_JOBS)..."
-    for T in "${TS[@]}"; do echo "https://$T" >> "$TUC"; echo "http://$T" >> "$TUC"; done
-    export JUDI_LIST; export KINFO_USER_AGENT; export TJL
-    cat "$TUC" | xargs -P "$PARALLEL_JOBS" -I {} bash -c "check_judi_homepage \"{}\" \"$JUDI_LIST\" \"$TJL\""
-    log_info "[*] Memulai Metode 2: Bing Dork Scan (Mencari di sub-halaman)..."
-    export DORK_UA
-    grep -vE "^\s*#|^\s*$" "$JUDI_LIST" | xargs -P 5 -I {} \
-        bash -c "check_judi_bing \"$ST\" \"{}\" \"$TJL\" \"$DORK_UA\""
-    local fc; fc=$(wc -l < "$TJL"); log_info "[+] Pemindaian selesai."
-    if [[ "$fc" -eq 0 ]]; then log_warn "Tidak ada konten judi yang terdeteksi."; return 0; fi
-    log_result "[FOUND] Ditemukan $fc indikasi konten judi!"
-    local OD
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then OD=$(jq -s '.' "$TJL"); else
-        OD=$(cat <<EOF
-Judi Online Finder Results
-Domain: $ST
-Scan Time: $(date)
-==================================
-$(cat "$TJL" | jq -r '"[+] (\(.method)) \(.url) (Keyword: \(.keyword))"')
-EOF
-)
+    
+    if [[ ! -f "$JUDI_LIST" ]]; then 
+        log_error "Wordlist Judi tidak ditemukan di: $JUDI_LIST"
+        return 1
     fi
-    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
-    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+    
+    local kc
+    kc=$(grep -vE "^\s*#|^\s*$" "$JUDI_LIST" | wc -l)
+    log_info "[*] Target: $ST"
+    log_info "[*] Database Keyword: $JUDI_LIST ($kc keywords)"
+
+    # --- 2. DEEP PATH GENERATION (Fitur Baru v1.4) ---
+    # Kita akan scan path-path kritis yang sering disusupi
+    local COMMON_PATHS=(
+        ""                      # Homepage
+        "blog/" "news/" "berita/" "artikel/" 
+        "wp-content/uploads/" "wp-includes/" 
+        "images/" "img/" "assets/" "css/" "js/" 
+        "data/" "files/" "media/" "public/" 
+        "admin/" "user/" "tmp/"
+    )
+    
+    local SCAN_URLS=()
+    for P in "${COMMON_PATHS[@]}"; do
+        SCAN_URLS+=("https://$ST/$P")
+        SCAN_URLS+=("http://$ST/$P")
+    done
+    
+    local total_urls=${#SCAN_URLS[@]}
+    log_info "[*] Memulai Metode 1: Deep Content Scan ($total_urls paths strategis)..."
+    
+    local TJL; TJL=$(add_temp_file)
+    local TUL; TUL=$(add_temp_file)
+    
+    # Siapkan daftar URL untuk xargs
+    printf "%s\n" "${SCAN_URLS[@]}" > "$TUL"
+    
+    export JUDI_LIST; export KINFO_USER_AGENT; export TJL
+    
+    # Jalankan Scan Konten secara Paralel
+    cat "$TUL" | xargs -P "$PARALLEL_JOBS" -I {} \
+        bash -c "check_judi_content \"{}\" \"$JUDI_LIST\" \"$TJL\" \"$KINFO_USER_AGENT\""
+
+    # --- 3. BING DORK SCAN ---
+    log_info "[*] Memulai Metode 2: Bing Dork Scan (Mencari halaman terindeks)..."
+    log_info "    (Mengambil 5 keyword acak dari wordlist untuk efisiensi)"
+    
+    # Ambil 5 keyword acak agar tidak memicu blokir Bing berlebihan
+    local RANDOM_KEYS
+    RANDOM_KEYS=$(shuf -n 5 "$JUDI_LIST")
+    
+    export DORK_UA
+    echo "$RANDOM_KEYS" | xargs -P 5 -I {} \
+        bash -c "check_judi_bing \"$ST\" \"{}\" \"$TJL\" \"$DORK_UA\""
+
+    local fc
+    fc=$(wc -l < "$TJL")
+    log_info "[+] Scan selesai. Indikasi ditemukan: $fc"
+    
+    if [[ "$fc" -eq 0 ]]; then 
+        log_warn "Tidak ada konten judi yang terdeteksi."; return 0; 
+    fi
+
+    # --- 4. OUTPUT GENERATION ---
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        jq -s --arg target "$ST" '{target: $target, results: .}' "$TJL" > "$OUTPUT_FILE"
+        if [[ "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+    else
+        {
+            echo "Judi Online Finder Results (v1.4 Deep Scan)"
+            echo "Domain: $ST"
+            echo "Scan Time: $(date)"
+            echo "=================================="
+            cat "$TJL" | jq -r '"[!] (\(.method)) \(.url) -> Keyword: \(.keyword)"'
+        } > "$OUTPUT_FILE"
+        
+        if [[ "$OUTPUT_FILE" != "/dev/stdout" ]]; then 
+            cat "$OUTPUT_FILE"
+            echo -e "\n[+] Hasil disimpan di: $OUTPUT_FILE"
+        fi
+    fi
 }
 
 # --- [R5] REVERSE IP LOOKUP ---
@@ -471,37 +686,178 @@ EOF
     echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
     if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
 }
+# ------------------------------------------------------
+# --- [R7] WEBSHELL FINDER (v1.4 Ultimate: Smart Scan + Massive Wordlist) ---
 
-# --- [R7] WEBSHELL FINDER [DIRSCAN] ---
+# Fungsi Helper: Smart Path Checker (Anti-Soft 404 & Content Verification)
+check_path_smart() {
+    local BU="$1"     # Base URL
+    local P="$2"      # Path to check
+    local RL="$3"     # Rate Limit
+    local UA="$4"     # User Agent
+    local RF="$5"     # Result File
+    local IG_SZ="$6"  # Ignore Size (Ukuran Soft 404)
+
+    local FU="${BU}/${P}"
+    if [[ "$RL" -gt 0 ]]; then sleep "$RL"; fi
+
+    # 1. TAHAP PERTAMA: Cek Header & Size (Cepat)
+    # Gunakan curl head (-I) dulu atau range byte kecil untuk efisiensi
+    local DATA
+    DATA=$(curl -sL -o /dev/null -w "%{http_code}:%{size_download}" --connect-timeout 3 --max-time 5 -H "User-Agent: $UA" "$FU")
+    
+    local SC=$(echo "$DATA" | cut -d':' -f1)
+    local SZ=$(echo "$DATA" | cut -d':' -f2)
+
+    # Validasi Awal: Status Code OK
+    if [[ "$SC" =~ ^(200|301|302|401|403)$ ]]; then
+        
+        # LOGIKA SOFT 404: Abaikan jika ukuran file sama dengan halaman error
+        if [[ "$IG_SZ" -gt 0 && "$SZ" -eq "$IG_SZ" ]]; then
+            return # Skip, ini halaman palsu
+        fi
+
+        # 2. TAHAP KEDUA: Content Verification (Hanya jika status 200)
+        # Kita cek apakah ini benar-benar webshell/login page atau file zonk
+        local INFO="Found"
+        
+        if [[ "$SC" == "200" ]]; then
+            # Download sebagian isi file (Maksimal 2KB pertama saja agar cepat)
+            local BODY
+            BODY=$(curl -sL -r 0-2000 --connect-timeout 3 --max-time 5 -H "User-Agent: $UA" "$FU")
+            
+            # Cek Keyword Khas Halaman Login / Webshell
+            # Keyword ditambah: c99, r57, indoxploit, alfa, hacked, hacked by
+            if echo "$BODY" | grep -qEi "type=['\"]?password|name=['\"]?pass|value=['\"]?login|multipart/form-data|wso|indoxploit|b374k|alfa|hacked by"; then
+                INFO="CONFIRMED SHELL (Login Form/Signature Detect)"
+            elif [[ "$SZ" -lt 50 ]]; then
+                 # File 200 OK tapi ukurannya sangat kecil (< 50 bytes) biasanya zonk/blank
+                 INFO="Suspicious (Small Size)"
+            else
+                 INFO="Potential File"
+            fi
+        fi
+
+        # Simpan hasil valid dengan Info Tambahan
+        jq -n --arg url "$FU" --arg status "$SC" --arg size "$SZ" --arg info "$INFO" \
+            '{"url": $url, "status": $status, "size": $size, "info": $info}' >> "$RF"
+    fi
+}
+export -f check_path_smart
+
 run_module_webscan() {
-    log_info "Memulai Webshell Finder [Directory Scan]..."
+    log_info "Memulai Webshell Finder v1.4 Ultimate [Massive Wordlist]..."
+    
+    # --- 1. SETUP & VALIDASI ---
     if [[ -z "$TARGET" ]]; then log_error "Target URL diperlukan."; return 1; fi
     if [[ ! "$TARGET" =~ ^https?:// ]]; then TARGET="https://$TARGET"; fi
-    TARGET=$(echo "$TARGET" | sed 's:/*$::')
-    local WSP=("shell.php" "backdoor.php" "cmd.php" "wso.php" "up.php" "upload.php" "sh.php" "phpinfo.php" "info.php" "test.php" "1.php" "wordpress.php" "IndoXploit.php" "b374k.php" "adminer.php" "phpMyAdmin/index.php" "pma/index.php" "mysql.php" "wp-config.php" "configuration.php" "settings.php" "web.config" "shell.jsp" "cmd.asp" "shell.aspx" ".git/config" "composer.json" "package.json" "install.php" "admin.php" "login.php" "wp-login.php" "administrator/index.php" "user/login" "dashboard" "panel" "control" "manager" "adminpanel" "cpanel" "webmail" "upload" "uploads" "file" "files" "log" "logs" "temp" "tmp" "cache" "backup" "backups" "dev" "test" "api-docs" "swagger" "docs" "status" "health" "server-status" "server-info")
-    local total=${#WSP[@]}
-    log_info "[*] Memulai pemindaian pada $TARGET ($total path internal, Paralel: $PARALLEL_JOBS)..."
-    local TJL; TJL=$(add_temp_file); local TPL; TPL=$(add_temp_file); printf "%s\n" "${WSP[@]}" > "$TPL"
-    export TARGET; export RATE_LIMIT; export KINFO_USER_AGENT; export TJL
-    cat "$TPL" | xargs -P "$PARALLEL_JOBS" -I {} \
-        bash -c "check_url_path \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$TJL\""
-    local fc; fc=$(wc -l < "$TJL"); log_info "[+] Pemindaian selesai. Ditemukan $fc item."
-    if [[ "$fc" -eq 0 ]]; then log_warn "Tidak ada item yang ditemukan."; return 0; fi
-    local OD
-    if [[ "$OUTPUT_FORMAT" == "json" ]]; then OD=$(jq -s '.' "$TJL"); else
-        OD=$(cat <<EOF
-Webshell/Dir Scan Results
-Target: $TARGET
-Scan Time: $(date)
-==================================
-$(cat "$TJL" | jq -r '"[\(.status)] \(.url) (Size: \(.size))"' | sort)
-EOF
-)
+    TARGET=$(echo "$TARGET" | sed 's:/*$::') # Hapus trailing slash
+    
+    log_info "[*] Target: $TARGET"
+
+    # --- 2. SOFT 404 CALIBRATION ---
+    log_info "[*] Melakukan kalibrasi Soft 404..."
+    local RAND_PATH="kinfo_chk_$(date +%s)"
+    local IGNORE_SIZE=0
+    
+    local CALIB_DATA
+    CALIB_DATA=$(curl -sL -o /dev/null -w "%{http_code}:%{size_download}" --connect-timeout 5 -H "User-Agent: $KINFO_USER_AGENT" "$TARGET/$RAND_PATH")
+    local CALIB_SC=$(echo "$CALIB_DATA" | cut -d':' -f1)
+    local CALIB_SZ=$(echo "$CALIB_DATA" | cut -d':' -f2)
+
+    if [[ "$CALIB_SC" == "200" ]]; then
+        IGNORE_SIZE="$CALIB_SZ"
+        log_warn "[!] Soft 404 Aktif! Filter size: $IGNORE_SIZE bytes."
+    else
+        log_info "[OK] Server normal (404 berfungsi)."
     fi
-    echo "$OD" | tee "$OUTPUT_FILE" > /dev/null
-    if [[ -n "$OUTPUT_FILE" && "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+
+    # --- 3. WORDLIST ULTIMATE (Lengkap & Terkelompok) ---
+    local WSP=(
+        # --- [GROUP 1] ALFA TEAM & VARIAN ---
+        "alfa.php" "alfav4.php" "alfav5.php" "alfashell.php" "solevisible.php" 
+        "alfa-rex.php" "alfacgi.api" "alfa.jpeg.php"
+        
+        # --- [GROUP 2] INDOXPLOIT & INDONESIAN SHELLS ---
+        "indoxploit.php" "idx.php" "indo.php" "indosec.php" "idx_config.php" 
+        "pacul.php" "kurama.php" "kuro.php" "bypas.php" "bypass.php"
+        
+        # --- [GROUP 3] WSO / ORB / B374K / GECKO ---
+        "wso.php" "wso2.php" "wso2.5.php" "wso_4.2.5.php" "gecko.php" 
+        "b374k.php" "b374k_mini.php" "marijuana.php" "101.php" "0.php"
+        
+        # --- [GROUP 4] LEGACY (C99, R57) ---
+        "c99.php" "r57.php" "c100.php" "kaefer.php" "angel.php" "g6.php"
+        
+        # --- [GROUP 5] STEALTH / SHORT NAMES (Sering Lolos WAF) ---
+        "x.php" "s.php" "u.php" "w.php" "d.php" "ws.php" "ak47.php" "404.php" 
+        "1.php" "2.php" "a.php" "b.php" "test.php" "t.php" "mini.php" "tiny.php" 
+        "shell.php" "cmd.php" "sh.php" "backdoor.php" "bd.php"
+        
+        # --- [GROUP 6] DECEPTIVE NAMES (Menyamar jadi file sistem) ---
+        "phpinfo.php" "info.php" "radio.php" "content.php" "about.php" "lock.php"
+        "images.php" "css.php" "login.php" "admin.php" "error.php" "install.php" 
+        "update.php" "ajax.php" "assets.php" "index_old.php" "index_bak.php"
+        
+        # --- [GROUP 7] UPLOADERS & DATABASE TOOLS ---
+        "upload.php" "uploader.php" "up.php" "adminer.php" "pma.php" "db.php" 
+        "sql.php" "mysql.php" "manager.php" "files.php"
+        
+        # --- [GROUP 8] TARGETED PATHS (WordPress/Config) ---
+        "wp-content/uploads/shell.php" "wp-content/uploads/2024/shell.php"
+        "wp-content/uploads/2025/shell.php" "wp-includes/shell.php"
+        "wp-admin/user/shell.php" "configuration.php" "wp-config.php" 
+        "config.php" "web.config" ".env" ".git/config" "composer.json"
+        
+        # --- [GROUP 9] BYPASS EXTENSIONS ---
+        "shell.phtml" "shell.php5" "shell.php.bak" "s.phtml" "u.phtml"
+    )
+    
+    local total=${#WSP[@]}
+    log_info "[*] Memulai Deep Scan pada $TARGET"
+    log_info "    (Mode: Content Verification, Wordlist: $total item, Paralel: $PARALLEL_JOBS)..."
+    
+    local TJL; TJL=$(add_temp_file)
+    local TPL; TPL=$(add_temp_file)
+    printf "%s\n" "${WSP[@]}" > "$TPL"
+    
+    export TARGET; export RATE_LIMIT; export KINFO_USER_AGENT; export TJL; export IGNORE_SIZE
+    
+    # --- 4. EXECUTION ---
+    cat "$TPL" | xargs -P "$PARALLEL_JOBS" -I {} \
+        bash -c "check_path_smart \"$TARGET\" \"{}\" \"$RATE_LIMIT\" \"$KINFO_USER_AGENT\" \"$TJL\" \"$IGNORE_SIZE\""
+    
+    local fc; fc=$(wc -l < "$TJL")
+    log_info "[+] Scan selesai. Kandidat ditemukan: $fc"
+    
+    if [[ "$fc" -eq 0 ]]; then 
+        log_warn "Tidak ada webshell yang ditemukan."; return 0; 
+    fi
+
+    # --- 5. OUTPUT GENERATION ---
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        jq -s --arg target "$TARGET" --arg soft404_size "$IGNORE_SIZE" \
+           '{target: $target, soft404_size: $soft404_size, results: .}' "$TJL" > "$OUTPUT_FILE"
+        if [[ "$OUTPUT_FILE" != "/dev/stdout" ]]; then cat "$OUTPUT_FILE"; fi
+    else
+        {
+            echo "Webshell/Dir Scan Results (v1.4 Ultimate)"
+            echo "Target: $TARGET"
+            echo "Scan Time: $(date)"
+            echo "Soft 404 Filter Size: $IGNORE_SIZE bytes"
+            echo "=================================="
+            # Menampilkan Status, Info Validasi, URL, dan Ukuran
+            cat "$TJL" | jq -r '"[\(.status)] [\(.info)] \(.url) (Size: \(.size))"' | sort -k 2
+        } > "$OUTPUT_FILE"
+        
+        if [[ "$OUTPUT_FILE" != "/dev/stdout" ]]; then 
+            cat "$OUTPUT_FILE"
+            echo -e "\n[+] Hasil disimpan di: $OUTPUT_FILE"
+        fi
+    fi
 }
 
+# ------------------------------------------------------
 # --- [R8] ENV & DEBUG METHOD SCANNER ---
 run_module_envscan() {
     log_info "Memulai ENV & Debug Method Scanner..."
