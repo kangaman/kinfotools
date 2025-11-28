@@ -1,68 +1,187 @@
-gacorpisan
-top21
-gacor
-maxwin
-topod2
-Cashback1
-Turnover1
-Rebate1
-Komisi1
-Referral1
-Withdraw1
-WD1
-Fair Play1
-Jackpot
-gacor
-maxwin
-Auto WD
-Rungkat
-Deposit
-bigwin
+*.gacor*
+*.maxwin*
+*.rtp*
+*.slot*
 69
-bet
-Scatter
-Wild
+Auto WD
+Baccarat
+Bandar Ceme
+Big Bass Bonanza
+Bigger Bass Bonanza
+Bingo
+Blackjack
+Bonanza Gold
+Book of Dead
+Booming
+CQ9
+Candy Village
+Capsa
+Cashback1
+Ceme
+Cockfight
+Deposit
+Dice
+Dog House
+Domino
+Dragon Tiger
+DragoonSoft
+Evoplay
+FaFaFa
+Fair Play1
+FelixGaming
+Fire Joker
 Free Spin
-Multiplier
-Mega Win
-Super Win
-Ultra Win
-Jepe
+Fruit Party
+Fruit Party 2
+Gates of Olympus
+Great Rhino
+Habanero
+Handicap
+Hyper Burst
+Instant Win
+JDB
+JILI
 JP
+Jackpot
+Jepe
+Joker123
+Keno
+Komisi1
+Limbo
+Live Casino
+Live22
+Magic Apple
+Mahjong Ways
+Mahjong Ways 2
+Mega Win
+Microgaming
+Mines
+Mix Parlay
+Multiplier
+Nolimit City
+Omaha
+OneTouch
+Over Under
+PG Soft
+PGSlot
+PGSoft
+Parlay
+Payout
+Playtech
+Poker
+Power of Thor
+Pragmatic
+RTG
+RTP
+RealTime Gaming
+Rebate1
+RedTiger
+Referral1
+Relax Gaming
+Roulette
+Rungkat
+Sabung Ayam
+Scatter
+Shio
+Sicbo
+SkyWind
+Slot
+SpadeGaming
+Spadegaming
+Sportsbook
+Starlight Princess
+Sugar Rush
+Sugar Rush 1000
+Super Win
+Super10
+Sweet Bonanza
+Togel
+Turnover1
+Ultra Win
+WD1
+Wild
+Wild West Gold
+Withdraw1
+YGGDrasil
+Zeus
+akun jp
+akun maxwin
+angka jitu
+baccarat online
+bet
+bigwin
+blackjack online
+bonus deposit
+bonus komisi
+bonus new member
+buyfree
+buyspin
+coinflip
+crash
+crazy time
+deposit pulsa
+deposit qris
+dicegame
+dragon tiger
+eventslot
+gacor
+gacor.*
+gacorpisan
+handicap bola
+iframe-gacor
+iframe-judi
+iframe-redirect
+iframe-slot
+jackpot spin
+limbo
+livecasino
+maxbet88
+maxwin
+maxwin.*
+mega wheel
+mines
+mixparlay
+over under bola
+parlay bola
+pola gacor
+prediksi hk
+prediksi sgp
+promo slot 100
+promoslot
+redirect-gacor
+redirect-slot
+roulette online
+rtp.*
+rtpgacor
+rtplive
+rtplivehariini
+rtpslot
+sbobet88
+sicbo online
+slot-redirect
+slot-script
+slot.*
+slot.min.js
+slotdeposit
+slotgacor
+slotgacor77
+slotgacor88
+slotindonesia
+slotmudahmenang
+slotonline
+slotviral
+togelhk
+togelsgp
+top21
+topod2
+toto macau
+tracking-slot
+trackinggacor
+trick win
+turbo spin
+update-rtp
+wheelspin
+winrate
 x1000
 x500
-Payout
-RTP
-Slot
-PG Soft
-Habanero
-Spadegaming
-Live Casino
-Baccarat
-Blackjack
-Roulette
-Sicbo
-Dragon Tiger
-Sportsbook
-Parlay
-Mix Parlay
-Handicap
-Over Under
-Togel
-Shio
-Poker
-Domino
-Capsa
-Ceme
-Bandar Ceme
-Super10
-Omaha
-Sabung Ayam
-Cockfight
-Mines
-Limbo
-Dice
-Keno
-Bingo
-Instant Win
 zeus
