@@ -259,4 +259,4 @@ Bebas digunakan, dimodifikasi, dan dikembangkan — selama mencantumkan kredit p
 - **Saeful Bahri** — Pengembang utama  
 - Referensi pengembangan `collectdata`: [adpermana (GitHub)](https://github.com/adpermana)  
 
-> “KINFO 1.4 bukan sekadar toolkit—ini adalah rangka kerja forensik dan pemetaan ancaman yang siap mendukung keputusan keamanan kritikal.”
+> “KINFO 1.4: Lebih Cerdas, Lebih Cepat, Lebih Dalam”
