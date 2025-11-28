@@ -250,10 +250,13 @@ flowchart TD
 # 📜 Lisensi
 
 **MIT License — 2025 © Saeful Bahri**
+Bebas digunakan, dimodifikasi, dan dikembangkan — selama mencantumkan kredit pembuat asli.
 
 ---
 
 # 👨‍💻 Pengembang
 
-- **Saeful Bahri** — Pengembang utama & CSIRT Diskominfo Subang  
-- Referensi fitur `collectdata`: **adpermana (GitHub)**  
+- **Saeful Bahri** — Pengembang utama  
+- Referensi pengembangan `collectdata`: [adpermana (GitHub)](https://github.com/adpermana)  
+
+> “KINFO 1.4 bukan sekadar toolkit—ini adalah rangka kerja forensik dan pemetaan ancaman yang siap mendukung keputusan keamanan kritikal.”
