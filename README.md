@@ -127,6 +127,13 @@ Framework ini dibuat untuk:
 *Penyalahgunaan tools ini untuk menyerang target tanpa izin tertulis adalah TINDAKAN ILEGAL. Pengembang tidak bertanggung jawab atas kerugian yang ditimbulkan.*
 
 ---
+
+## 🤝 Credits & Acknowledgements
+Special thanks to the open-source community for the inspiration and references:
+*   **adpermana (GitHub)**: Core logic reference for [L6] *Forensic Data Collector* (`collectdata`).
+*   **ProjectDiscovery & OWASP**: Methodologies adapted for Reconnaissance modules.
+
+---
 <div align="center">
     <b>NawaSec Framework Team</b><br>
     <i>Secure. Fast. Precise.</i>
