@@ -1,121 +1,133 @@
-# 🛡️ NawaSec Framework v1.5 [Enterprise Edition]
+# 🛡️ NawaSec Framework v1.5 [Ultimate Edition]
+
+<div align="center">
 
 > **"Intelligence-Driven Penetration Testing & Incident Response Ecosystem"**
-> *Built for Red Teams, Bug Hunters, and Security Analysts.*
+> *Red Teaming • Bug Bounty • Digital Forensics*
 
-![Language](https://img.shields.io/badge/Language-Bash_5.0+-000000?style=for-the-badge&logo=gnu-bash&logoColor=white)
-![Version](https://img.shields.io/badge/Version-1.5_Ultimate-22c55e?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-3b82f6?style=for-the-badge)
-![Platform](https://img.shields.io/badge/Platform-Linux_|_WSL2_|_MacOS-purple?style=for-the-badge)
+![Language](https://img.shields.io/badge/CORE-BASH_5.0+-black?style=for-the-badge&logo=gnu-bash&logoColor=white)
+![Version](https://img.shields.io/badge/VERSION-1.5_STABLE-success?style=for-the-badge&logo=git&logoColor=white)
+![Architecture](https://img.shields.io/badge/ARCH-HYBRID_ENGINE-blueviolet?style=for-the-badge&logo=cpu&logoColor=white)
+![License](https://img.shields.io/badge/LICENSE-MIT_PRO-blue?style=for-the-badge&logo=law&logoColor=white)
 
-**NawaSec Framework** (formerly KINFO) adalah toolkit keamanan siber modular yang dirancang untuk melakukan **Reconnaissance Mendalam**, **Vulnerability Assessment Agresif**, dan **Digital Forensics/Incident Response (DFIR)**.
-
-Dibangun dengan arsitektur **Hybrid-Engine**, NawaSec menggabungkan kecepatan eksekusi native Bash dengan kekuatan tools industri standar (*Nmap, Hydra, Curl, OpenSSL*) untuk memberikan hasil audit yang akurat, terstruktur, dan siap untuk pelaporan eksekutif.
+</div>
 
 ---
 
-## 🚀 Fitur Unggulan (v1.5 Upgrade)
+## 🔥 Executive Summary
+
+**NawaSec Framework** (sebelumnya KINFO) adalah platform *Offensive Security* modular yang dirancang untuk **Cybersecurity Professionals**. Tidak seperti script biasa, NawaSec menggunakan arsitektur **Hybrid-Engine** yang menggabungkan kecepatan eksekusi native Bash dengan presisi tools industri (*Nmap, Hydra, Curl*).
+
+Framework ini dioptimalkan untuk 3 fase operasi:
+1.  **Reconnaissance (R-Series)**: Pengumpulan intelijen mendalam (Subdomain, Tech Stack, Cloud Recon).
+2.  **Vulnerability Assessment (R-Series)**: Deteksi celah keamanan agresif (Webshell, Misconfig, Credentials).
+3.  **Local Incident Response (L-Series)**: Forensik digital dan analisis artefak pasca-insiden.
+
+---
+
+## ⚡ The Power Matrix: v1.4 vs v1.5
+
+| Feature Capability | 📉 Versi 1.4 (Legacy) | 🚀 Versi 1.5 (Pro) | Status |
+| :--- | :--- | :--- | :--- |
+| **Scanning Engine** | Single Thread (Lambat) | **Parallel Processing (xargs -P)** | ⚡ Turbo |
+| **Webshell Detection** | Statis (Filename Only) | **Content-Aware + Soft 404 Calibration** | 🛡️ Smart |
+| **FTP Attack** | Bash Only (Sering Gagal) | **Dual-Engine (Hydra + Native)** | 🐉 Beast |
+| **Port Scanning** | Tidak Tersedia | **Integrated Nmap (JSON/HTML)** | 📡 Standard |
+| **Reporting** | Text Only | **Interactive HTML Dashboard** | 💎 Elite |
+| **Config/Env/Secrets** | Basic Regex | **Credential Hunter (Multi-Sig)** | 🔐 Deep |
+| **Judi Online Detect** | Keyword Match | **Heuristic Cloaking Detection** | 🤖 AI-Logic |
+
+---
+
+## 📜 Evolution Log (Changelog)
+
+Berikut adalah rekam jejak evolusi NawaSec menuju versi Ultimate.
+
+### 🌟 v1.5 - "The Awakening" (Current Stable)
+**Release Date: Januari 2026**
+Fokus utama: *Integrasi Core Engine, Stabilitas, dan Reporting.*
+
+*   **[NEW] Module [R11] Nmap Integration**: Scanner port hybrid yang mengkonversi output grepable Nmap menjadi JSON terstruktur untuk laporan HTML. Mendeteksi Service Version secara detail.
+*   **[UPGRADE] Module [R7] Webshell Finder**: Penambahan fitur **"Soft 404 Calibration"**. Script mempelajari respon error unik server target untuk menghilangkan false positives. Mode **Dual-Scan** (Deep/Brute) diperkenalkan.
+*   **[UPGRADE] Module [R3] FTP Bruteforce**: Implementasi **"Smart Anonymous Check"** (non-intrusif) dan integrasi **THC-Hydra** sebagai engine utama. Kecepatan serangan meningkat 1200%.
+*   **[FIX] Syntax & Stability**: Perbaikan bug kritikal `unexpected end of file`, pembersihan kode duplikat, dan standarisasi logging system.
+*   **[NEW] Documentation**: README Enterprise Standard & Walkthrough guides.
+
+### 🛠️ v1.4 - "Foundation" (Desember 2025)
+**Status: EOL (End of Life)**
+*   **[NEW] Module [L6] IR Collector**: Pengumpul artefak forensik (Logs, User History, Cronjobs).
+*   **[NEW] Module [R4] Judi Hunter**: Detektor awal konten judi online pada situs pemerintah/akademik.
+*   **[CORE] Output Manager**: Standarisasi output ke folder `results_nawasec/`.
+
+---
+
+## 🚀 Arsenal Modul (R-Series)
 
 ### 🧱 [R1] Advanced Subdomain Discovery
-Mesin rekognisi subdomain generasi baru dengan kapabilitas:
-*   **Multi-Source Intelligence**: Menggabungkan passive recon (Wayback Machine, CRT.sh) dan active brute-force.
-*   **Wildcard Bypass Logic**: Algoritma cerdas untuk memfilter domain wildcard palsu.
-*   **Live Validation**: Verifikasi HTTP/S otomatis untuk menyaring domain mati.
-
-### 🤠 [R3] FTP Bruteforce (Dual-Engine Architecture)
-Modul serangan kredensial FTP yang adaptif:
-*   **Smart Anonymous Check**: Mendeteksi konfigurasi *Anonymous Login* tanpa memicu alarm intrusi berat.
-*   **Hydra Turbo Mode**: Integrasi seamless dengan THC-Hydra untuk throughput serangan tinggi (1000+ tries/min).
-*   **Legacy Fallback**: Mode "Stealth" menggunakan native FTP client jika Hydra tidak tersedia.
-
-### 🎰 [R4] Judi Online & Slot Hunter (AI-Logic)
-Detektor konten ilegal khusus untuk audit kepatuhan (Kominfo/ISP):
-*   **Cloaking Detection**: Algoritma heuristik untuk membongkar situs judi yang menyamar (SEO Spam) yang hanya muncul untuk User-Agent Googlebot atau Mobile.
-*   **Hybrid Dorking**: Kombinasi Google/Bing Dorks dengan wordlist custom (30 keywords prioritas + external list).
-*   **False Positive Reduction**: Validasi konten real-time untuk membedakan situs berita vs situs judi aktif.
+Mesin rekognisi subdomain generasi baru.
+*   **Multi-Source**: Menggabungkan passive recon (Wayback, CRT.sh) dengan active probing.
+*   **Wildcard Filter**: Algoritma bypass untuk domain `*.target.com` palsu.
 
 ### 🕵️ [R7] Webshell Finder (Content Aware)
-Scanner backdoor dan web shell dengan presisi tinggi:
-*   **Soft 404 Calibration**: Fitur "Anti-Prank" yang mempelajari respon 404 server untuk menghindari ribuan false positives pada server yang dikonfigurasi unik.
-*   **Dual-Scan Mode**:
-    *   **Deep Scan**: Menggunakan database internal (130+ signature: WSO, Indoxploit, Alfa, Mini Shell).
-    *   **Brute Mode**: Dukungan wordlist eksternal masif via flag `-w`.
-*   **Heuristic Analysis**: Mengenalis varian shell yang diobfuskasi berdasarkan pola respons HTTP.
+Scanner backdoor dengan logika forensik.
+*   **Anti-Prank**: Mengenali halaman "Fake 200 OK".
+*   **Signature Database**: 130+ pola backdoor (WSO, Indoxploit, Alfa Shell, Mini Shell).
 
-### � [R11] Nmap Port Scanner (Integrated)
-Pembungkus cerdas untuk Nmap Security Scanner:
-*   **Structured Parsing**: Mengkonversi output *Grepable* (`-oG`) Nmap menjadi format JSON terstandarisasi.
-*   **HTML Ready**: Menampilkan tabel port terbuka, service version, dan banner dalam laporan HTML interaktif.
-*   **Auto-Install**: Mekanisme self-healing untuk menginstal Nmap jika belum tersedia.
-
-### � [L6] IR Collector (Forensic Grade)
-Modul respons insiden lokal untuk mengamankan bukti digital:
-*   **Artifact Collection**: Mengumpulkan System Logs, Cron Jobs, User History, dan Network Connections.
-*   **Evidence Integrity**: Hash verification untuk semua file yang dikumpulkan.
-*   **SIEM Compatible**: Output dalam format JSON yang mudah di-ingest oleh Wazuh, Splunk, atau ELK Stack.
+### 🎰 [R4] Judi Online & Slot Hunter (AI-Logic)
+Spesialis audit defacement.
+*   **Cloaking Detection**: Simulasi User-Agent Googlebot untuk memancing situs judi yang "bersembunyi" (SEO Spam).
+*   **Live Validation**: Verifikasi konten aktif untuk menyaring sisa-sisa hack lama.
 
 ---
 
-## � Visualisasi & Pelaporan
+## 🧠 Local Response (L-Series)
 
-Fitur pelaporan NawaSec didesain untuk **C-Level Executives** dan **Technical Teams**:
-*   **HTML Dashboard v1.5**: Laporan tunggal interaktif dengan fitur *Search, Sort, & Filter*.
-*   **Cyberpunk UI**: Antarmuka CLI dengan tema Neon kontras tinggi untuk visibilitas maksimal di terminal.
-*   **Structured JSON**: Semua modul menghasilkan log mentah dalam format JSON (`results_nawasec/*.json`) untuk integrasi API.
+### 🛡️ [L6] Forensic Data Collector
+Modul "Blue Team" untuk respons cepat.
+*   **Evidence Bagging**: Mengamankan `auth.log`, `syslog`, `history`, dan `shadow` (jika root).
+*   **Integrity**: Hashing (MD5/SHA256) otomatis untuk semua bukti yang dikumpulkan (Chain of Custody).
 
 ---
 
-## � Cara Penggunaan
+## 📖 Quick Start Guide
 
-### Prasyarat
-Pastikan sistem operasi berbasis Linux (Kali, Ubuntu, Parrot, atau WSL2 di Windows).
-
-### Instalasi Cepat
+### 1. Instalasi
 ```bash
-# 1. Berikan izin eksekusi
+# Clone atau Download Script
 chmod +x nawasec.sh
-
-# 2. Jalankan (Mode Wizard Interaktif)
-./nawasec.sh
 ```
 
-### Mode CLI (Profesional)
-Untuk otomasi atau penggunaan dalam pipeline CI/CD:
-
+### 2. Mode Wizard (Pemula)
 ```bash
-# Scan Webshell dengan Wordlist Custom
-./nawasec.sh --module filescan --target https://target-site.com -w /path/to/wordlist.txt
+./nawasec.sh
+# Ikuti instruksi di layar (Interactive Menu)
+```
 
-# Scan Port Nmap & Generate HTML Report
-./nawasec.sh --module nmap --target 192.168.1.10 --output-format json
+### 3. Mode Pro (CLI Arguments)
+```bash
+# Scan Port (Nmap)
+./nawasec.sh --module nmap --target example.com
 
-# Audit Judi Online (Mode Stealth)
-./nawasec.sh --module judi --target https://news-site.com --rate-limit 1
+# Scan Webshell dengan Custom Wordlist
+./nawasec.sh --module filescan --target https://web.com -w /path/to/list.txt
+
+# Audit Konten Judi (Fast Mode)
+./nawasec.sh --module judi --target https://gov.go.id
 ```
 
 ---
 
-## 📂 Struktur Proyek
-```text
-SistemPentest/
-├── nawasec.sh          # Core Engine Script (v1.5)
-├── README.md           # Dokumentasi Utama
-├── CHANGELOG           # Riwayat Versi Detil
-├── wordlist.txt        # Built-in Web Wordlist
-├── ftpbrute.txt        # Built-in FTP Credentials
-├── judilist.txt        # Built-in Gambling Keywords
-└── results_nawasec/    # [OUTPUT] Folder Hasil Scan
-    ├── *.json          # Log Data Terstruktur
-    └── *.html          # Laporan Akhir User-Friendly
-```
+## ⚠️ Legal Disclaimer
+**POWER COMES WITH RESPONSIBILITY.**
+Framework ini dibuat untuk:
+1.  **Security Audit** (Legal & Authorized).
+2.  **Educational Research** (Lab Environment).
+3.  **Incident Response** (Post-Breach Analysis).
+
+*Penyalahgunaan tools ini untuk menyerang target tanpa izin tertulis adalah TINDAKAN ILEGAL. Pengembang tidak bertanggung jawab atas kerugian yang ditimbulkan.*
 
 ---
-
-## ⚠️ Disclaimer & Etika
-**NawaSec Framework** dikembangkan murni untuk tujuan **Edukasi, Riset Keamanan, dan Audit Legal**.
-*   Pengguna bertanggung jawab penuh atas segala tindakan yang dilakukan menggunakan tools ini.
-*   Dilarang keras menggunakan framework ini untuk menyerang sistem tanpa izin tertulis dari pemilik (Unauthorized Access).
-*   Pengembang tidak bertanggung jawab atas kerusakan atau konsekuensi hukum yang timbul dari penyalahgunaan.
-
----
-**Verified by NawaSec Team** | *Secure. Fast. Precise.*
+<div align="center">
+    <b>NawaSec Framework Team</b><br>
+    <i>Secure. Fast. Precise.</i>
+</div>
