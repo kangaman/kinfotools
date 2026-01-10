@@ -1,0 +1,23 @@
+{
+  "target": "mahkotagraha54.my.id",
+  "results": [
+    {
+      "status": "[open]",
+      "type": "PORT (tcp)",
+      "url": "mahkotagraha54.my.id:25",
+      "info": "tcpwrapped"
+    },
+    {
+      "status": "[open]",
+      "type": "PORT (tcp)",
+      "url": "mahkotagraha54.my.id:443",
+      "info": "tcpwrapped"
+    },
+    {
+      "status": "[open]",
+      "type": "PORT (tcp)",
+      "url": "mahkotagraha54.my.id:995",
+      "info": "tcpwrapped"
+    }
+  ]
+}

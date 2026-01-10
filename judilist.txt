@@ -1,187 +1,458 @@
-*.gacor*
-*.maxwin*
-*.rtp*
-*.slot*
-69
-Auto WD
-Baccarat
-Bandar Ceme
-Big Bass Bonanza
-Bigger Bass Bonanza
-Bingo
-Blackjack
-Bonanza Gold
-Book of Dead
-Booming
-CQ9
-Candy Village
-Capsa
-Cashback1
-Ceme
-Cockfight
-Deposit
-Dice
-Dog House
-Domino
-Dragon Tiger
-DragoonSoft
-Evoplay
-FaFaFa
-Fair Play1
-FelixGaming
-Fire Joker
-Free Spin
-Fruit Party
-Fruit Party 2
-Gates of Olympus
-Great Rhino
-Habanero
-Handicap
-Hyper Burst
-Instant Win
-JDB
-JILI
-JP
-Jackpot
-Jepe
-Joker123
-Keno
-Komisi1
-Limbo
-Live Casino
-Live22
-Magic Apple
-Mahjong Ways
-Mahjong Ways 2
-Mega Win
-Microgaming
-Mines
-Mix Parlay
-Multiplier
-Nolimit City
-Omaha
-OneTouch
-Over Under
-PG Soft
-PGSlot
-PGSoft
-Parlay
-Payout
-Playtech
-Poker
-Power of Thor
-Pragmatic
-RTG
-RTP
-RealTime Gaming
-Rebate1
-RedTiger
-Referral1
-Relax Gaming
-Roulette
-Rungkat
-Sabung Ayam
-Scatter
-Shio
-Sicbo
-SkyWind
-Slot
-SpadeGaming
-Spadegaming
-Sportsbook
-Starlight Princess
-Sugar Rush
-Sugar Rush 1000
-Super Win
-Super10
-Sweet Bonanza
-Togel
-Turnover1
-Ultra Win
-WD1
-Wild
-Wild West Gold
-Withdraw1
-YGGDrasil
-Zeus
-akun jp
-akun maxwin
-angka jitu
-baccarat online
-bet
-bigwin
-blackjack online
-bonus deposit
-bonus komisi
-bonus new member
-buyfree
-buyspin
-coinflip
-crash
-crazy time
-deposit pulsa
-deposit qris
-dicegame
-dragon tiger
-eventslot
+# NawaSec - Judi List (Updated v1.1)
 gacor
-gacor.*
-gacorpisan
-handicap bola
-iframe-gacor
-iframe-judi
-iframe-redirect
-iframe-slot
-jackpot spin
-limbo
-livecasino
-maxbet88
 maxwin
-maxwin.*
-mega wheel
-mines
-mixparlay
-over under bola
-parlay bola
-pola gacor
-prediksi hk
-prediksi sgp
-promo slot 100
-promoslot
-redirect-gacor
-redirect-slot
-roulette online
-rtp.*
-rtpgacor
-rtplive
-rtplivehariini
-rtpslot
-sbobet88
-sicbo online
-slot-redirect
-slot-script
-slot.*
-slot.min.js
-slotdeposit
-slotgacor
-slotgacor77
-slotgacor88
-slotindonesia
-slotmudahmenang
-slotonline
-slotviral
-togelhk
-togelsgp
-top21
-topod2
-toto macau
-tracking-slot
-trackinggacor
-trick win
-turbo spin
-update-rtp
-wheelspin
-winrate
-x1000
-x500
+slot88
+pragmatic
+pgsoft
 zeus
+olympus
+poker
+casino
+togel
+sbobet
+joker123
+habanero
+spadegaming
+microgaming
+playtech
+slot online
+judi online
+bandar
+agen
+deposit pulsa
+link alternatif
+rtp live
+bocoran slot
+pola gacor
+freespin
+scatter
+jackpot
+member baru
+bonus 100
+depo
+wd
+withdraw
+qris
+dana
+ovo
+gopay
+linkaja
+sakuku
+bet
+taruhan
+winrate
+server thailand
+server kamboja
+server rusia
+akun pro
+vip
+referral
+turnover
+rollingan
+cashback
+rebate
+mix parlay
+handicap
+over under
+baccarat
+sicbo
+roulette
+dragon tiger
+fan tan
+domino qq
+ceme
+capsa susun
+super 10
+oma
+omaha
+capsa
+fish hunter
+tembak ikan
+arcade
+cock fight
+sabung ayam
+sv388
+s128
+maxbet
+cmd368
+ibcbet
+m88
+fun88
+w88
+bk8
+me88
+96m
+aw8
+b9
+cmd
+ug
+ultimate gaming
+nexus
+nexus engine
+pay4d
+infini88
+mpo
+mpo gaming
+hoki
+cuan
+petir
+kakek zeus
+inces
+starlight princess
+sweet bonanza
+gates of olympus
+mahjong ways
+aztec gems
+koi gate
+fafa
+panda
+fortune
+lucky
+royal
+king
+queen
+princess
+empire
+dynasty
+kingdom
+palace
+vip
+vvip
+pro
+master
+suhu
+sultan
+bos
+juragan
+ratu
+dewa
+naga
+harimau
+phoenix
+garuda
+elang
+rajawali
+macan
+singa
+serigala
+banteng
+badak
+gajah
+kuda
+kelinci
+kucing
+ikan
+burung
+ayam
+bebek
+angsa
+merpati
+wallet
+mesin
+room
+meja
+kursi
+dadu
+kartu
+batu
+gunting
+kertas
+suit
+tebak
+angka
+nomor
+shio
+mimpi
+tafsir
+prediksi
+analisa
+rumus
+algorithm
+software
+bot
+cheat
+hack
+bypass
+injector
+apk
+mod
+download
+install
+setup
+config
+setting
+panduan
+cara
+trik
+tips
+rahasia
+bocor
+info
+berita
+event
+turnamen
+kompetisi
+lomba
+hadiah
+reward
+gift
+voucher
+promo
+diskon
+potongan
+gratis
+free
+demo
+trial
+tes
+coba
+main
+play
+login
+daftar
+register
+sign in
+sign up
+join
+gabung
+masuk
+user
+id
+pass
+password
+kode
+pin
+security
+aman
+terpercaya
+resmi
+original
+asli
+palsu
+fake
+scam
+tipu
+hacker
+atas
+bawah
+depan
+belakang
+kiri
+kanan
+pusat
+cabang
+agen
+pusat
+bandar
+bo
+web
+site
+link
+url
+domain
+hosting
+server
+cloud
+cdn
+ip
+dns
+ssl
+tsl
+https
+http
+www
+com
+net
+org
+info
+biz
+co
+id
+my
+sg
+hk
+us
+uk
+eu
+au
+jp
+cn
+kr
+tw
+th
+vn
+phi
+mys
+sgp
+hkg
+usa
+gbr
+eur
+aus
+jpn
+chn
+kor
+twn
+tha
+vnm
+phl
+ind
+idn
+indo
+indonesia
+nusantara
+jakarta
+bandung
+surabaya
+medan
+makassar
+semarang
+palembang
+batam
+pekanbaru
+bali
+lombok
+papua
+kalimantan
+sumatera
+jawa
+sulawesi
+maluku
+ntt
+ntb
+aceh
+padang
+lampung
+bengkulu
+jambi
+riau
+banten
+jogja
+solo
+malang
+bogor
+depok
+tangerang
+bekasi
+cikarang
+karawang
+purwakarta
+cianjur
+sukabumi
+tasikmalaya
+garut
+ciamis
+banjar
+kuningan
+cirebon
+indramayu
+majalengka
+sumedang
+subang
+purwakarta
+karawang
+bekasi
+jakarta
+tangerang
+serang
+cilegon
+pandeglang
+lebak
+rangkasbitung
+banten
+lampung
+palembang
+jambi
+bengkulu
+padang
+pekanbaru
+medan
+aceh
+pontianak
+palangkaraya
+banjarmasin
+samarinda
+balikpapan
+tarakan
+manado
+gorontalo
+palu
+kendari
+makassar
+mamuju
+ambon
+ternate
+jayapura
+sorong
+manokwari
+merauke
+timika
+kupang
+mataram
+denpasar
+singaraja
+ubud
+kuta
+seminyak
+changgu
+legian
+sanur
+jimbaran
+nusa dua
+uluwatu
+pecatu
+ungkasan
+canggu
+berawa
+batu bolong
+pererenan
+seseh
+tanah lot
+kedungu
+mengwj
+abiansemal
+petang
+payangan
+tegallalang
+tampaksiring
+sukawati
+bla
+gianyar
+klungkung
+bangli
+karangasem
+amlapura
+candidasa
+amed
+tulamben
+kintamani
+batur
+penelokan
+bedugul
+baturiti
+pupuan
+selemadeg
+kerambitan
+tabanan
+negara
+jembrana
+gilimanuk
+menjangan
+pemuteran
+lovina
+seririt
+banjar
+buleleng
+kubutambahan
+sawan
+tejakula
+kubu
+manggis
+rendang
+selat
+bebandem
+sidemen
+dawan
+nusapenida
+lemongan
+ceningan

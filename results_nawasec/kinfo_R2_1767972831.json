@@ -1,0 +1,836 @@
+{
+  "target": "https://subang.go.id",
+  "soft404_size": "0",
+  "results": [
+    {
+      "url": "https://subang.go.id/.git/HEAD.config",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.htm",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.swp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.php",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.xml",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.env",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.html",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.js",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.bak",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.save",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.asp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.old",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.txt",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.yml",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.backup",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.json",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.orig",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.aspx",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.log",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.htm",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.html",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.sql",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.bak",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.aspx",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.jsp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.old",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.zip",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD/",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.asp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.js",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.db",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.php",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.jsp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.save",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.backup",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.txt",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.json",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.tar.gz",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.xml",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.config",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.sql",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.db",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.env",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.zip",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.log",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.tar.gz",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.rar",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.php",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config/",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.htm",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.jsp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.asp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.aspx",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.js",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.orig",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.old",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.bak",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.save",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.backup",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.txt",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.json",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.env",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.config",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.yml",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.log",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.xml",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.zip",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index/",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.swp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.tar.gz",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.php",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.orig",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.swp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.htm",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.asp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.html",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.jsp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.sql",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.bak",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.db",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.old",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.orig",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.aspx",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.save",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.html",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.backup",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.txt",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.swp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.json",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/config.yml",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.xml",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.env",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.config",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.log",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/HEAD.rar",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.sql",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.db",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.rar",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries/",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.html",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.tar.gz",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.php",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.htm",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.asp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.aspx",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.old",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.js",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.save",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.orig",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.js",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.swp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.json",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.xml",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.config",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.env",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.backup",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.log",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.bak",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.yml",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.sql",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.tar.gz",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.rar",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.db",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.git/index.rar",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.zip",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db/",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.zip",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.jsp",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/wc.db.txt",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/.svn/entries.yml",
+      "status": "403",
+      "size": "1242"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.htm",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.jsp",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.asp",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.aspx",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.bak",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.js",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.old",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.orig",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.swp",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.backup",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.json",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.txt",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.xml",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.yml",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.zip",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.env",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.config",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.rar",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.log",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.db",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.sql",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.html",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.save",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.tar.gz",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php/",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/wp-config.php.php",
+      "status": "403",
+      "size": "4547"
+    },
+    {
+      "url": "https://subang.go.id/backend/",
+      "status": "200",
+      "size": "0"
+    },
+    {
+      "url": "https://subang.go.id/backend//",
+      "status": "200",
+      "size": "0"
+    },
+    {
+      "url": "https://subang.go.id/cpanel/",
+      "status": "200",
+      "size": "34758"
+    },
+    {
+      "url": "https://subang.go.id/cpanel//",
+      "status": "200",
+      "size": "34783"
+    }
+  ]
+}
